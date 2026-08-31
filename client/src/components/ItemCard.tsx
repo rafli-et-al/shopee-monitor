@@ -107,9 +107,11 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
                 {v.name}
               </span>
               <div className="variant-meta">
-                <span className="variant-price">{formatPrice(v.price)}</span>
+                {v.price > 0 && (
+                  <span className="variant-price">{formatPrice(v.price)}</span>
+                )}
                 <span className={`badge ${isOut ? 'badge-out-stock' : 'badge-in-stock'}`}>
-                  {isOut ? 'Out of Stock' : `${v.stock} in stock`}
+                  {isOut ? 'Out of Stock' : 'In Stock'}
                 </span>
               </div>
             </div>

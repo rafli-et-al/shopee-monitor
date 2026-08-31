@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Send, Save, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { AppSettings } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -8,23 +7,16 @@ interface SettingsModalProps {
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-  showToast
-}) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, showToast }) => {
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
-  const [stockCron, setStockCron] = useState('0 */6 * * *');
-  const [priceCron, setPriceCron] = useState('0 * * * *');
+  const [checkCron, setCheckCron] = useState('0 * * * *');
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      loadSettings();
-    }
+    if (isOpen) loadSettings();
   }, [isOpen]);
 
   const loadSettings = async () => {
@@ -32,45 +24,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const res = await fetch('/api/settings');
       const json = await res.json();
       if (json.success && json.data) {
-        const data: AppSettings = json.data;
-        setBotToken(data.telegram_bot_token || '');
-        setChatId(data.telegram_chat_id || '');
-        setStockCron(data.stock_cron || '0 */6 * * *');
-        setPriceCron(data.price_cron || '0 * * * *');
+        setBotToken(json.data.telegram_bot_token || '');
+        setChatId(json.data.telegram_chat_id || '');
+        setCheckCron(json.data.check_cron || '0 * * * *');
       }
     } catch {
       showToast('Failed to load settings', 'error');
     }
   };
 
-  const handleTestTelegram = async () => {
+  const handleTest = async () => {
     if (!botToken.trim() || !chatId.trim()) {
-      showToast('Please enter both Bot Token and Chat ID to test.', 'error');
+      showToast('Enter both Bot Token and Chat ID to test.', 'error');
       return;
     }
-
     setTesting(true);
     setTestResult(null);
-
     try {
       const res = await fetch('/api/telegram/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bot_token: botToken.trim(),
-          chat_id: chatId.trim()
-        })
+        body: JSON.stringify({ bot_token: botToken.trim(), chat_id: chatId.trim() })
       });
       const json = await res.json();
       setTestResult(json);
-      if (json.success) {
-        showToast('Telegram message sent! Check your app.', 'success');
-      } else {
-        showToast(json.message || 'Telegram test failed', 'error');
-      }
+      showToast(json.success ? 'Test message sent! Check Telegram.' : json.message, json.success ? 'success' : 'error');
     } catch (err: any) {
-      setTestResult({ success: false, message: err.message || 'Network error' });
-      showToast('Failed to test Telegram', 'error');
+      setTestResult({ success: false, message: err.message });
+      showToast('Telegram test failed', 'error');
     } finally {
       setTesting(false);
     }
@@ -79,7 +60,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
@@ -87,15 +67,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         body: JSON.stringify({
           telegram_bot_token: botToken.trim(),
           telegram_chat_id: chatId.trim(),
-          stock_cron: stockCron.trim(),
-          price_cron: priceCron.trim()
+          check_cron: checkCron.trim()
         })
       });
       const json = await res.json();
-
-      if (!res.ok) throw new Error(json.error || 'Failed to update settings');
-
-      showToast('Settings saved successfully!', 'success');
+      if (!res.ok) throw new Error(json.error || 'Failed to save');
+      showToast('Settings saved!', 'success');
       onClose();
     } catch (err: any) {
       showToast(err.message || 'Failed to save settings', 'error');
@@ -110,25 +87,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="modal-title">Settings & Telegram Configuration</h3>
-          <button className="btn-icon" onClick={onClose}>
-            <X size={18} />
-          </button>
+          <h3 className="modal-title">Settings & Telegram</h3>
+          <button className="btn-icon" onClick={onClose}><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSave}>
           <div className="modal-body">
             <div className="guide-step">
-              <span className="guide-num">Quick Telegram Bot Setup (Free & 2 mins)</span>
-              <div>
-                1. Open Telegram & search <span className="code-pill">@BotFather</span>. Send <span className="code-pill">/newbot</span> and copy the API Token.
-              </div>
-              <div>
-                2. Search <span className="code-pill">@userinfobot</span> to get your numeric User ID.
-              </div>
-              <div>
-                3. Open your new bot and click <b>Start</b>.
-              </div>
+              <span className="guide-num">Telegram Setup (2 minutes)</span>
+              <div>1. Search <span className="code-pill">@BotFather</span> on Telegram → send <span className="code-pill">/newbot</span> → copy the API Token.</div>
+              <div>2. Search <span className="code-pill">@userinfobot</span> → press Start → copy your numeric ID.</div>
+              <div>3. Open your new bot and press <b>Start</b>.</div>
             </div>
 
             <div className="form-group">
@@ -143,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Telegram Chat ID</label>
+              <label className="form-label">Telegram Chat ID (your user ID)</label>
               <input
                 type="text"
                 className="form-input"
@@ -153,27 +122,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleTestTelegram}
-                disabled={testing}
-              >
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary" onClick={handleTest} disabled={testing}>
                 {testing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 Send Test Message
               </button>
-
               {testResult && (
-                <span
-                  style={{
-                    fontSize: '0.8rem',
-                    color: testResult.success ? 'var(--success-text)' : 'var(--danger-text)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
+                <span style={{ fontSize: '0.8rem', color: testResult.success ? 'var(--success-text)' : 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   {testResult.success ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
                   {testResult.message}
                 </span>
@@ -183,38 +138,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <hr style={{ borderColor: 'var(--border-subtle)' }} />
 
             <div className="form-group">
-              <label className="form-label">Variant Stock Check Cron Expression</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="0 */6 * * *"
-                value={stockCron}
-                onChange={(e) => setStockCron(e.target.value)}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Default: <span className="code-pill">0 */6 * * *</span> (Every 6 hours)
-              </span>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Price Check Cron Expression</label>
+              <label className="form-label">Check Interval (Cron Expression)</label>
               <input
                 type="text"
                 className="form-input"
                 placeholder="0 * * * *"
-                value={priceCron}
-                onChange={(e) => setPriceCron(e.target.value)}
+                value={checkCron}
+                onChange={(e) => setCheckCron(e.target.value)}
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Default: <span className="code-pill">0 * * * *</span> (Every 1 hour)
+                Runs both stock &amp; price checks. Default: <span className="code-pill">0 * * * *</span> (every hour)
               </span>
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Save Settings

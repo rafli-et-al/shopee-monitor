@@ -219,7 +219,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                           {formatPrice(variant.price)}
                         </span>
                         <span className={`badge ${isOutOfStock ? 'badge-out-stock' : 'badge-in-stock'}`}>
-                          {isOutOfStock ? 'Out of Stock' : `${variant.stock} left`}
+                          {isOutOfStock ? 'Out of Stock' : 'In Stock'}
                         </span>
                       </div>
                     </div>

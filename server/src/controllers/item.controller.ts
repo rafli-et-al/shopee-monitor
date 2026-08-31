@@ -117,9 +117,9 @@ export class ItemController {
   static async checkItemNow(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const success = await SchedulerService.checkItem(id);
+      const result = await SchedulerService.checkItem(id);
       const updated = dbService.getItemById(id);
-      res.json({ success, data: updated });
+      res.json({ success: !result.error, data: updated, stockAlerts: result.stockAlerts, priceAlerts: result.priceAlerts, error: result.error });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to execute immediate check.' });
     }
@@ -130,16 +130,14 @@ export class ItemController {
       const settings = dbService.getAllSettings();
       const botToken = settings.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN || '';
       const chatId = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
-      const stockCron = settings.stock_cron || process.env.STOCK_CHECK_CRON || '0 */6 * * *';
-      const priceCron = settings.price_cron || process.env.PRICE_CHECK_CRON || '0 * * * *';
+      const checkCron = settings.check_cron || process.env.STOCK_CHECK_CRON || '0 * * * *';
 
       res.json({
         success: true,
         data: {
           telegram_bot_token: botToken,
           telegram_chat_id: chatId,
-          stock_cron: stockCron,
-          price_cron: priceCron
+          check_cron: checkCron
         }
       });
     } catch (error: any) {
@@ -149,7 +147,7 @@ export class ItemController {
 
   static async updateSettings(req: Request, res: Response): Promise<void> {
     try {
-      const { telegram_bot_token, telegram_chat_id, stock_cron, price_cron } = req.body;
+      const { telegram_bot_token, telegram_chat_id, check_cron } = req.body;
 
       if (telegram_bot_token !== undefined) {
         dbService.setSetting('telegram_bot_token', String(telegram_bot_token).trim());
@@ -157,16 +155,13 @@ export class ItemController {
       if (telegram_chat_id !== undefined) {
         dbService.setSetting('telegram_chat_id', String(telegram_chat_id).trim());
       }
-      if (stock_cron !== undefined) {
-        dbService.setSetting('stock_cron', String(stock_cron).trim());
-      }
-      if (price_cron !== undefined) {
-        dbService.setSetting('price_cron', String(price_cron).trim());
+      if (check_cron !== undefined) {
+        dbService.setSetting('check_cron', String(check_cron).trim());
       }
 
       SchedulerService.restart();
 
-      res.json({ success: true, message: 'Settings updated successfully.' });
+      res.json({ success: true, message: 'Settings updated and scheduler restarted.' });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to save settings.' });
     }

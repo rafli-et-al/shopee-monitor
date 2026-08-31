@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -6,7 +6,7 @@ import fs from 'fs';
 import apiRoutes from './routes/api';
 import { SchedulerService } from './services/scheduler.service';
 
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +30,14 @@ if (fs.existsSync(publicPath)) {
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
 }
+
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  if (err.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'Invalid JSON in request body.' });
+    return;
+  }
+  res.status(500).json({ error: err.message || 'Internal server error.' });
+});
 
 SchedulerService.init();
 

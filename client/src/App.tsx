@@ -17,6 +17,8 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
+  const [seenAlertId, setSeenAlertId] = useState(0);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -41,6 +43,19 @@ export const App: React.FC = () => {
     }
   };
 
+  const fetchAlertCount = async () => {
+    try {
+      const res = await fetch('/api/alerts');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        const latestId = json.data[0].id;
+        if (latestId > seenAlertId) {
+          setAlertCount(json.data.filter((a: any) => a.id > seenAlertId).length);
+        }
+      }
+    } catch {}
+  };
+
   const checkTelegramStatus = async () => {
     try {
       const res = await fetch('/api/settings');
@@ -54,7 +69,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     fetchItems();
     checkTelegramStatus();
-    const interval = setInterval(fetchItems, 30000);
+    fetchAlertCount();
+    const interval = setInterval(() => {
+      fetchItems();
+      fetchAlertCount();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -86,8 +105,12 @@ export const App: React.FC = () => {
       <Header
         onOpenAddModal={() => setIsAddOpen(true)}
         onOpenSettingsModal={() => setIsSettingsOpen(true)}
-        onOpenAlertsModal={() => setIsAlertsOpen(true)}
-        unreadAlertCount={0}
+        onOpenAlertsModal={() => {
+          setIsAlertsOpen(true);
+          setAlertCount(0);
+          setSeenAlertId((prev) => prev);
+        }}
+        unreadAlertCount={alertCount}
       />
 
       <main className="container" style={{ flex: 1, paddingBottom: '3rem' }}>
