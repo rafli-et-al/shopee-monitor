@@ -34,7 +34,6 @@ export class ScraperService {
 
       const urlObj = new URL(cleanUrl);
       const pathname = urlObj.pathname;
-      const parts = pathname.split('/').filter(Boolean);
 
       const dotMatch = pathname.match(/\.(\d+)\.(\d+)$/);
       if (dotMatch) {
@@ -53,75 +52,114 @@ export class ScraperService {
   }
 
   static async fetchItemDetails(shopId: string, itemId: string, originalUrl?: string): Promise<ScrapedItem> {
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-    ];
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+    const targetUrl = originalUrl || `https://shopee.co.id/product/${shopId}/${itemId}`;
 
     const headers = {
-      'User-Agent': randomUserAgent,
-      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-      'Referer': `https://shopee.co.id/product/${shopId}/${itemId}`,
-      'X-Requested-With': 'XMLHttpRequest',
-      'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"Windows"',
-      'Sec-Fetch-Dest': 'empty',
-      'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Site': 'same-origin'
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1'
     };
 
-    const apiUrl = `https://shopee.co.id/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`;
-
     try {
-      const response = await axios.get(apiUrl, {
+      const response = await axios.get(targetUrl, {
         headers,
-        timeout: 10000,
+        timeout: 12000,
         validateStatus: () => true
       });
 
-      if (response.status === 200 && response.data && response.data.data) {
-        const itemData = response.data.data;
-        const name = itemData.name || 'Shopee Product';
-        const imageId = itemData.image || (itemData.images && itemData.images[0]) || null;
-        const image = imageId ? `https://down-id.img.susercontent.com/file/${imageId}` : null;
+      if (response.status === 200 && response.data) {
+        const html = String(response.data);
+        const scriptMatches = html.matchAll(/<script\b[^>]*>(.*?)<\/script>/gs);
 
-        let models: ScrapedVariant[] = [];
-        if (Array.isArray(itemData.models) && itemData.models.length > 0) {
-          models = itemData.models.map((m: any) => ({
-            model_id: String(m.modelid || m.itemid || m.name),
-            name: m.name || 'Default Variant',
-            price: m.price ? (m.price > 100000000 ? Math.round(m.price / 100000) : m.price) : 0,
-            stock: Number(m.stock ?? m.normal_stock ?? 0)
-          }));
-        } else {
-          const rawPrice = itemData.price || itemData.price_min || 0;
-          const normalPrice = rawPrice > 100000000 ? Math.round(rawPrice / 100000) : rawPrice;
-          models = [
-            {
-              model_id: 'default',
-              name: 'Default',
-              price: normalPrice,
-              stock: Number(itemData.stock ?? itemData.normal_stock ?? 0)
-            }
-          ];
+        let pdpItem: any = null;
+        let pdpPrice: any = null;
+
+        for (const match of scriptMatches) {
+          const scriptContent = match[1];
+          if (
+            scriptContent.includes('PDP_BFF_DATA') ||
+            (scriptContent.includes('initialState') && scriptContent.includes(itemId))
+          ) {
+            try {
+              const json = JSON.parse(scriptContent);
+              const cachedMap = json?.initialState?.DOMAIN_PDP?.data?.PDP_BFF_DATA?.cachedMap;
+              const pdpKey = `${shopId}/${itemId}`;
+              const pdpData = cachedMap?.[pdpKey] || Object.values(cachedMap || {})[0];
+
+              if (pdpData) {
+                pdpItem = pdpData.item || pdpData;
+                pdpPrice = pdpData.product_price || pdpData.price;
+                break;
+              }
+            } catch {}
+          }
         }
 
-        const rawMainPrice = itemData.price || itemData.price_min || 0;
-        const mainPrice = rawMainPrice > 100000000 ? Math.round(rawMainPrice / 100000) : rawMainPrice;
+        if (pdpItem) {
+          const title = pdpItem.title || pdpItem.name || 'Shopee Product';
+          const imageId = pdpItem.image || (pdpItem.images && pdpItem.images[0]);
+          const image = imageId ? `https://down-id.img.susercontent.com/file/${imageId}` : null;
 
-        return {
-          shop_id: shopId,
-          item_id: itemId,
-          name,
-          image,
-          url: originalUrl || `https://shopee.co.id/product/${shopId}/${itemId}`,
-          price: mainPrice,
-          variants: models
-        };
+          let basePrice = 0;
+          if (pdpPrice?.price) {
+            basePrice = pdpPrice.price > 100000000 ? Math.round(pdpPrice.price / 100000) : pdpPrice.price;
+          } else if (pdpItem.price) {
+            basePrice = pdpItem.price > 100000000 ? Math.round(pdpItem.price / 100000) : pdpItem.price;
+          }
+
+          const variants: ScrapedVariant[] = [];
+
+          if (Array.isArray(pdpItem.models) && pdpItem.models.length > 0) {
+            for (const m of pdpItem.models) {
+              const modelId = String(m.model_id || m.modelid || m.name);
+              const name = m.name || 'Default Variant';
+
+              const isUnavailable = m.is_clickable === false || m.is_grayout === true || m.status === 0;
+              const stock = isUnavailable ? 0 : Number(m.stock ?? m.normal_stock ?? 0);
+
+              let modelPrice = basePrice;
+              if (m.price) {
+                modelPrice = m.price > 100000000 ? Math.round(m.price / 100000) : m.price;
+              }
+
+              variants.push({
+                model_id: modelId,
+                name,
+                price: modelPrice,
+                stock
+              });
+            }
+          } else {
+            const isUnavailable = pdpItem.status === 0 || pdpItem.is_unavailable === true;
+            const stock = isUnavailable ? 0 : Number(pdpItem.stock ?? pdpItem.normal_stock ?? 0);
+            variants.push({
+              model_id: 'default',
+              name: 'Default',
+              price: basePrice,
+              stock
+            });
+          }
+
+          return {
+            shop_id: shopId,
+            item_id: itemId,
+            name: title,
+            image,
+            url: targetUrl,
+            price: basePrice,
+            variants
+          };
+        }
       }
 
       return this.fetchItemFallback(shopId, itemId, originalUrl);
