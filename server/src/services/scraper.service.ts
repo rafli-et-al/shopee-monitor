@@ -20,68 +20,31 @@ export interface ScrapedItem {
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-  'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8',
   'Cache-Control': 'no-cache',
-  'Pragma': 'no-cache',
-  'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-  'Sec-Ch-Ua-Mobile': '?0',
-  'Sec-Ch-Ua-Platform': '"Windows"',
   'Sec-Fetch-Dest': 'document',
   'Sec-Fetch-Mode': 'navigate',
   'Sec-Fetch-Site': 'none',
-  'Sec-Fetch-User': '?1',
   'Upgrade-Insecure-Requests': '1'
 };
 
-function extractPriceFromStore(html: string): number {
-  const storeMatch = html.match(/window\.__STORE__\s*=\s*JSON\.parse\(("(?:[^"\\]|\\.)*")\)/s);
-  if (storeMatch) {
-    try {
-      const storeJson = JSON.parse(JSON.parse(storeMatch[1]));
-      const price =
-        storeJson?.pdpReducer?.itemInfo?.item?.price ||
-        storeJson?.pdpReducer?.itemInfo?.item?.price_min ||
-        storeJson?.product?.price ||
-        storeJson?.product?.price_min;
-      if (price && price > 0) {
-        return price > 100000000 ? Math.round(price / 100000) : price;
-      }
-    } catch {}
-  }
+function extractPdpData(html: string): any | null {
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)];
 
-  const priceInScripts = html.match(/"price"\s*:\s*(\d{7,})/g);
-  if (priceInScripts) {
-    for (const match of priceInScripts) {
-      const val = Number(match.replace(/"price"\s*:\s*/, ''));
-      if (val > 10000000) {
-        return Math.round(val / 100000);
-      }
-    }
-  }
-
-  return 0;
-}
-
-function extractPdpData(html: string, shopId: string, itemId: string): { item: any; pdpPrice: any } | null {
-  const scriptMatches = html.matchAll(/<script\b[^>]*>(.*?)<\/script>/gs);
-
-  for (const match of scriptMatches) {
+  for (const match of scripts) {
     const content = match[1];
-    if (
-      content.includes('PDP_BFF_DATA') ||
-      (content.includes('initialState') && content.includes(itemId))
-    ) {
-      try {
-        const json = JSON.parse(content);
-        const cachedMap = json?.initialState?.DOMAIN_PDP?.data?.PDP_BFF_DATA?.cachedMap;
-        const pdpKey = `${shopId}/${itemId}`;
-        const pdpData = cachedMap?.[pdpKey] || Object.values(cachedMap || {})[0];
-        if (pdpData?.item) {
-          return { item: pdpData.item, pdpPrice: pdpData.product_price };
-        }
-      } catch {}
-    }
+    if (!content.includes('PDP_BFF_DATA') || !content.includes('initialState')) continue;
+
+    try {
+      const parsed = JSON.parse(content);
+      const cachedMap = parsed?.initialState?.DOMAIN_PDP?.data?.PDP_BFF_DATA?.cachedMap;
+      if (!cachedMap) continue;
+
+      const pdpKey = Object.keys(cachedMap)[0];
+      const pdpData = cachedMap[pdpKey];
+      if (pdpData?.item) return pdpData;
+    } catch {}
   }
   return null;
 }
@@ -89,20 +52,13 @@ function extractPdpData(html: string, shopId: string, itemId: string): { item: a
 export class ScraperService {
   static parseShopeeUrl(url: string): { shopId: string; itemId: string } | null {
     try {
-      const clean = url.trim();
+      const clean = url.trim().split('?')[0];
 
-      const fmt1 = clean.match(/-i\.(\d+)\.(\d+)/);
+      const fmt1 = clean.match(/-i\.?(\d+)\.(\d+)/);
       if (fmt1) return { shopId: fmt1[1], itemId: fmt1[2] };
 
       const fmt2 = clean.match(/product\/(\d+)\/(\d+)/);
       if (fmt2) return { shopId: fmt2[1], itemId: fmt2[2] };
-
-      const urlObj = new URL(clean);
-      const dotMatch = urlObj.pathname.match(/\.(\d+)\.(\d+)$/);
-      if (dotMatch) return { shopId: dotMatch[1], itemId: dotMatch[2] };
-
-      const redir = urlObj.searchParams.get('redir');
-      if (redir) return this.parseShopeeUrl(decodeURIComponent(redir));
 
       return null;
     } catch {
@@ -110,71 +66,50 @@ export class ScraperService {
     }
   }
 
-  static async fetchItemDetails(shopId: string, itemId: string, originalUrl?: string): Promise<ScrapedItem> {
-    const targetUrl = originalUrl || `https://shopee.co.id/product/${shopId}/${itemId}`;
+  static async fetchItemDetails(shopId: string, itemId: string, _originalUrl?: string): Promise<ScrapedItem> {
+    const cleanUrl = `https://shopee.co.id/product/${shopId}/${itemId}`;
 
     try {
-      const response = await axios.get(targetUrl, {
+      const response = await axios.get(cleanUrl, {
         headers: BROWSER_HEADERS,
         timeout: 15000,
         validateStatus: () => true
       });
 
-      if (response.status !== 200 || !response.data) {
-        return this.fallback(shopId, itemId, targetUrl);
+      if (response.status !== 200) {
+        throw new Error(`HTTP ${response.status}`);
       }
 
       const html = String(response.data);
-      const pdpData = extractPdpData(html, shopId, itemId);
+      const pdpData = extractPdpData(html);
 
-      if (!pdpData) return this.fallback(shopId, itemId, targetUrl);
+      if (!pdpData) throw new Error('Could not parse product page data');
 
-      const { item } = pdpData;
-
-      const title = item.title || item.name || 'Shopee Product';
-      const imageId = item.image || (item.images?.[0]);
+      const item = pdpData.item;
+      const title = item.title || item.name || `Shopee Product (${shopId}/${itemId})`;
+      const imageId = item.image || item.images?.[0];
       const image = imageId ? `https://down-id.img.susercontent.com/file/${imageId}` : null;
 
-      const basePrice = extractPriceFromStore(html);
       const variants: ScrapedVariant[] = [];
 
       if (Array.isArray(item.models) && item.models.length > 0) {
         for (const m of item.models) {
-          const modelId = String(m.model_id || m.modelid || m.name);
-          const name = m.name || 'Default Variant';
+          const modelId = String(m.model_id ?? m.modelid ?? m.id ?? m.name);
+          const name = m.name || 'Default';
           const available = m.is_clickable !== false && m.is_grayout !== true && m.status !== 0;
-          const stock = available ? Number(m.stock ?? m.normal_stock ?? 0) : 0;
+          const stock = available ? Number(m.stock ?? m.normal_stock ?? 10) : 0;
 
-          let modelPrice = basePrice;
-          if (m.price && m.price > 0) {
-            modelPrice = m.price > 100000000 ? Math.round(m.price / 100000) : m.price;
-          }
-
-          variants.push({ model_id: modelId, name, price: modelPrice, stock, available });
+          variants.push({ model_id: modelId, name, price: 0, stock, available });
         }
       } else {
-        const available = !item.is_unavailable && item.status !== 0;
-        const stock = available ? Number(item.stock ?? item.normal_stock ?? 0) : 0;
-        variants.push({
-          model_id: 'default',
-          name: 'Default',
-          price: basePrice,
-          stock,
-          available
-        });
+        const available = item.status !== 0;
+        variants.push({ model_id: 'default', name: 'Default', price: 0, stock: available ? 10 : 0, available });
       }
 
-      return {
-        shop_id: shopId,
-        item_id: itemId,
-        name: title,
-        image,
-        url: targetUrl,
-        price: basePrice,
-        variants
-      };
-    } catch {
-      return this.fallback(shopId, itemId, targetUrl);
+      return { shop_id: shopId, item_id: itemId, name: title, image, url: cleanUrl, price: 0, variants };
+    } catch (err: any) {
+      console.error(`[Scraper] Failed for ${shopId}/${itemId}:`, err.message);
+      return this.fallback(shopId, itemId, cleanUrl);
     }
   }
 
