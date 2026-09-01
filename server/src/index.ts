@@ -39,6 +39,15 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: err.message || 'Internal server error.' });
 });
 
+import { dbService } from './db';
+
+if (process.env.TELEGRAM_BOT_TOKEN && !dbService.getSetting('telegram_bot_token')) {
+  dbService.setSetting('telegram_bot_token', process.env.TELEGRAM_BOT_TOKEN.trim());
+}
+if (process.env.TELEGRAM_CHAT_ID && !dbService.getSetting('telegram_chat_id')) {
+  dbService.setSetting('telegram_chat_id', process.env.TELEGRAM_CHAT_ID.trim());
+}
+
 SchedulerService.init();
 
 app.listen(PORT, () => {
