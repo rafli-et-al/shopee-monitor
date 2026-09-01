@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Save, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { X, Send, Save, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,7 +9,6 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, showToast }) => {
   const [botToken, setBotToken] = useState('');
-  const [showToken, setShowToken] = useState(false);
   const [chatId, setChatId] = useState('');
   const [checkCron, setCheckCron] = useState('0 * * * *');
   const [loading, setLoading] = useState(false);
@@ -103,25 +102,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
             <div className="form-group">
               <label className="form-label">Telegram Bot Token</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type={showToken ? 'text' : 'password'}
-                  className="form-input"
-                  style={{ width: '100%', paddingRight: '2.5rem' }}
-                  placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                  value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  className="btn-icon"
-                  style={{ position: 'absolute', right: '0.5rem', background: 'none', border: 'none', color: 'var(--text-muted)' }}
-                  title={showToken ? 'Hide Token' : 'Show Token'}
-                >
-                  {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                value={botToken}
+                onChange={(e) => setBotToken(e.target.value)}
+              />
             </div>
 
             <div className="form-group">
