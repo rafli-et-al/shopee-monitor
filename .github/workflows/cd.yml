@@ -32,11 +32,13 @@ jobs:
           case "${{ github.ref }}" in
             *develop*)
               echo "ENV_NAME=qa" >> $GITHUB_OUTPUT
+              echo "PROJECT_NAME=shopee-qa" >> $GITHUB_OUTPUT
               echo "DOCKER_TAG=qa" >> $GITHUB_OUTPUT
               echo "COMPOSE_FILE=docker-compose.qa.yml" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "ENV_NAME=prod" >> $GITHUB_OUTPUT
+              echo "PROJECT_NAME=shopee-prod" >> $GITHUB_OUTPUT
               echo "DOCKER_TAG=latest" >> $GITHUB_OUTPUT
               echo "COMPOSE_FILE=docker-compose.yml" >> $GITHUB_OUTPUT
               ;;
@@ -85,8 +87,8 @@ jobs:
             cd ${{ secrets.VPS_APP_DIR || '~/shopee-monitor' }}
             git pull || true
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull || true
-            sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} stop || true
-            sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} rm -f || true
-            sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} up -d --remove-orphans
+            sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull || true
+            sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} stop || true
+            sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} rm -f || true
+            sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} up -d --remove-orphans
 
