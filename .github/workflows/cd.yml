@@ -2,7 +2,7 @@ name: CD Pipeline - Deploy to VPS
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, 'develop/**', 'develop/master' ]
 
 env:
   REGISTRY: ghcr.io
@@ -22,7 +22,7 @@ jobs:
       - name: Set Environment Variables
         id: env-vars
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+          if [[ "${{ github.ref }}" =~ "develop" ]]; then
             echo "ENV_NAME=qa" >> $GITHUB_OUTPUT
             echo "DOCKER_TAG=qa" >> $GITHUB_OUTPUT
             echo "COMPOSE_FILE=docker-compose.qa.yml" >> $GITHUB_OUTPUT
