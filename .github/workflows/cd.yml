@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main, master, develop, 'develop/**', 'develop/master' ]
 
+concurrency:
+  group: deploy-vps-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -82,5 +86,7 @@ jobs:
             git pull || true
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
             sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull || true
+            sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} stop || true
+            sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} rm -f || true
             sudo docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} up -d --remove-orphans
 
