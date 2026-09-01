@@ -3,7 +3,6 @@ export interface Variant {
   item_id: string;
   model_id: string;
   name: string;
-  price: number;
   stock: number;
   is_tracked: number;
   last_notified_stock: number;
@@ -26,7 +25,6 @@ export interface Item {
 export interface ScrapedVariantPreview {
   model_id: string;
   name: string;
-  price: number;
   stock: number;
 }
 
@@ -36,7 +34,6 @@ export interface ScrapedPreview {
   name: string;
   image: string | null;
   url: string;
-  price: number;
   variants: ScrapedVariantPreview[];
 }
 
@@ -53,6 +50,5 @@ export interface AlertLog {
 export interface AppSettings {
   telegram_bot_token: string;
   telegram_chat_id: string;
-  stock_cron: string;
-  price_cron: string;
+  check_cron: string;
 }

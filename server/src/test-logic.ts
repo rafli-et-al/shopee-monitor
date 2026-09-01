@@ -29,7 +29,6 @@ async function runTests() {
       id: crypto.randomUUID(),
       model_id: 'm1_red_xl',
       name: 'Red - XL',
-      price: 150000,
       stock: 0,
       is_tracked: 1
     },
@@ -37,7 +36,6 @@ async function runTests() {
       id: crypto.randomUUID(),
       model_id: 'm2_blue_m',
       name: 'Blue - M',
-      price: 145000,
       stock: 5,
       is_tracked: 0
     }
@@ -57,13 +55,13 @@ async function runTests() {
 
   const retrieved = dbService.getItemById(testId);
   console.log('Retrieved Item from DB:', retrieved?.name);
-  console.log('Variants in DB:', retrieved?.variants.map((v) => ({ name: v.name, stock: v.stock, price: v.price })));
+  console.log('Variants in DB:', retrieved?.variants.map((v) => ({ name: v.name, stock: v.stock })));
 
   if (!retrieved || retrieved.variants.length !== 2) {
     throw new Error('Database insertion/retrieval verification failed');
   }
 
-  console.log('\n=== 3. Testing Price Drop & Stock Restock Logic ===');
+  console.log('\n=== 3. Testing Stock Restock Transition Logic ===');
   const trackedVariant = retrieved.variants.find((v) => v.model_id === 'm1_red_xl')!;
   
   const prevStock = trackedVariant.stock;
@@ -80,22 +78,7 @@ async function runTests() {
     });
   }
 
-  const prevPrice = trackedVariant.price;
-  const newPrice = 120000;
-  console.log(`Price changed: ${prevPrice} -> ${newPrice}`);
-  if (newPrice < prevPrice) {
-    console.log(`Price drop detected! Discount: ${TelegramService.formatRupiah(prevPrice - newPrice)}`);
-    dbService.logAlert({
-      itemId: retrieved.id,
-      itemName: retrieved.name,
-      variantName: trackedVariant.name,
-      alertType: 'PRICE_DROP',
-      message: `Price dropped from ${prevPrice} to ${newPrice}`
-    });
-    dbService.recordPrice(retrieved.id, trackedVariant.model_id, newPrice);
-  }
-
-  dbService.updateVariant(trackedVariant.id, newStock, newPrice, newStock);
+  dbService.updateVariant(trackedVariant.id, newStock, newStock);
 
   const alerts = dbService.getAlerts(10);
   console.log('\nLogged Alerts in DB:', alerts.length);
@@ -103,11 +86,7 @@ async function runTests() {
     console.log(`- [${alert.alert_type}] ${alert.item_name} (${alert.variant_name}): ${alert.message}`);
   }
 
-  console.log('\n=== 4. Testing Currency Formatter ===');
-  console.log('Formatted IDR:', TelegramService.formatRupiah(150000));
-  console.log('Formatted IDR:', TelegramService.formatRupiah(2499000));
-
-  console.log('\n=== 5. Testing Settings Storage ===');
+  console.log('\n=== 4. Testing Settings Storage ===');
   dbService.setSetting('telegram_bot_token', 'test_token_123');
   dbService.setSetting('telegram_chat_id', 'test_chat_456');
   console.log('Retrieved Token:', dbService.getSetting('telegram_bot_token'));
@@ -116,7 +95,7 @@ async function runTests() {
   dbService.deleteItem(testId);
   console.log('\nCleaned up test item successfully.');
 
-  console.log('\n ALL BUSINESS LOGIC CHECKS PASSED!');
+  console.log('\n ALL STOCK MONITORING BUSINESS LOGIC CHECKS PASSED!');
 }
 
 runTests().catch((err) => {

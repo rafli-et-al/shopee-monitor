@@ -16,6 +16,5 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - STOCK_CHECK_CRON=${STOCK_CHECK_CRON:-0 */6 * * *}
-      - PRICE_CHECK_CRON=${PRICE_CHECK_CRON:-0 * * * *}
     volumes:
       - ./data:/app/data

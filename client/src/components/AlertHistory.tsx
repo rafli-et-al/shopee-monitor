@@ -61,7 +61,7 @@ export const AlertHistory: React.FC<AlertHistoryProps> = ({
               </div>
               <h4 className="empty-title">No notifications yet</h4>
               <p className="empty-desc">
-                When items restock or prices drop, instant Telegram alerts and activity records will appear here.
+                When tracked items and variants come back in stock, instant Telegram alerts and activity records will appear here.
               </p>
             </div>
           ) : (

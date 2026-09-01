@@ -1,4 +1,4 @@
-# 🛍️ Shopee Indonesia Stock & Price Monitor
+# 🛍️ Shopee Indonesia Stock & Restock Monitor
 
 [![CI Pipeline](https://github.com/your-username/shopee-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/shopee-monitor/actions)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Stage-blue?logo=docker)](https://www.docker.com/)
@@ -7,7 +7,7 @@
 [![Telegram](https://img.shields.io/badge/Telegram-Bot%20API-26A5E4?logo=telegram)](https://core.telegram.org/bots/api)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A full-stack monitoring system and DevOps pipeline built to track out-of-stock items, specific product variants, and price drops on **Shopee Indonesia (`shopee.co.id`)**, with instant alerts delivered via **Telegram Bot**.
+A lightweight, automated stock and restock monitoring system built for **Shopee Indonesia (`shopee.co.id`)**, with instant restock alerts delivered via **Telegram Bot**. Optimized for low-resource environments (e.g. Oracle Cloud Always Free Tier).
 
 ---
 
@@ -19,13 +19,13 @@ graph TD
         UI[Dashboard & Metrics]
         Preview[URL Parser & Variant Selector]
         SettingsUI[Telegram & Cron Settings]
-        LogsUI[Alert & Price History]
+        LogsUI[Restock Alert History]
     end
 
     subgraph Backend [Server - Node.js + Express + TypeScript]
         API[Express REST API]
-        Scraper[Shopee ID Scraper & Variant Extractor]
-        Scheduler[Dual Cron Scheduler: Stock 6h / Price 1h]
+        Scraper[Shopee SSR Scraper & Variant Extractor]
+        Scheduler[Automated Cron Scheduler]
         Telegram[Telegram Bot Dispatcher]
         DB[(SQLite Embedded DB)]
     end
@@ -39,9 +39,9 @@ graph TD
     UI -->|REST API| API
     API --> DB
     Scheduler --> Scraper
-    Scraper -->|Shopee Indonesia API| Shopee[Shopee.co.id]
-    Scheduler -->|Restock / Price Drop| Telegram
-    Telegram -->|Send Message & Photo| TGUser[User Telegram App]
+    Scraper -->|Shopee Indonesia SSR| Shopee[Shopee.co.id]
+    Scheduler -->|Restock Detected| Telegram
+    Telegram -->|Send Photo & Buy Link| TGUser[User Telegram App]
     GH -->|Automated Build & SSH Deploy| VPS
 ```
 
@@ -50,11 +50,10 @@ graph TD
 ## ✨ Features
 
 - **Specific Variant Tracking**: Select and monitor exact variants (size, color, model) rather than generic product listings.
-- **Dual Monitoring Schedulers**:
-  - **Stock Checks**: Scheduled every **6 hours** per variant (configurable).
-  - **Price Drop Checks**: Scheduled every **1 hour** for discount alerts.
-- **Instant Telegram Alerts**: Sends rich notifications containing product thumbnail, variant name, real-time stock count, formatted price in IDR (`Rp`), and direct "Buy Now" link.
+- **Automated Restock Scheduler**: Checks stock status periodically per configured cron interval (default: every 6 hours or every hour).
+- **Instant Telegram Alerts**: Sends rich notifications containing product thumbnail, variant name, real-time stock count, and direct "Buy Now" link.
 - **Interactive Setup Wizard**: In-app Telegram Bot configuration with one-click test message verification.
+- **Ultra-Lightweight (~50MB)**: Uses fast SSR parsing with zero headless browser overhead, running smoothly on low-memory VPS instances.
 - **Production-Ready DevOps Pipeline**: Automated GitHub Actions CI/CD, multi-stage Docker builds, and zero-downtime SSH deployment to a free VPS (e.g. Oracle Cloud Always Free).
 
 ---
@@ -83,7 +82,6 @@ NODE_ENV=development
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 STOCK_CHECK_CRON=0 */6 * * *
-PRICE_CHECK_CRON=0 * * * *
 ```
 
 ### 4. Run Locally

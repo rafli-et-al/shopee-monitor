@@ -23,6 +23,13 @@ export class ItemController {
       }
 
       const itemDetails = await ScraperService.fetchItemDetails(parsed.shopId, parsed.itemId, url);
+      if (!itemDetails.image && itemDetails.name.startsWith('Shopee Product (')) {
+        res.status(502).json({
+          error: 'Shopee temporarily blocked the request or the product could not be fetched. Please try clicking Fetch again.'
+        });
+        return;
+      }
+
       res.json({
         success: true,
         data: itemDetails
@@ -54,7 +61,6 @@ export class ItemController {
         id: crypto.randomUUID(),
         model_id: String(v.model_id || v.name),
         name: v.name || 'Default',
-        price: Number(v.price) || 0,
         stock: Number(v.stock) || 0,
         is_tracked: v.is_tracked !== undefined ? (v.is_tracked ? 1 : 0) : 1
       }));
@@ -119,7 +125,7 @@ export class ItemController {
       const { id } = req.params;
       const result = await SchedulerService.checkItem(id);
       const updated = dbService.getItemById(id);
-      res.json({ success: !result.error, data: updated, stockAlerts: result.stockAlerts, priceAlerts: result.priceAlerts, error: result.error });
+      res.json({ success: !result.error, data: updated, stockAlerts: result.stockAlerts, error: result.error });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to execute immediate check.' });
     }

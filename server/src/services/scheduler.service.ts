@@ -30,12 +30,11 @@ export class SchedulerService {
     this.init();
   }
 
-  static async checkItem(itemId: string): Promise<{ stockAlerts: number; priceAlerts: number; error?: string }> {
+  static async checkItem(itemId: string): Promise<{ stockAlerts: number; error?: string }> {
     const item = dbService.getItemById(itemId);
-    if (!item) return { stockAlerts: 0, priceAlerts: 0, error: 'Item not found' };
+    if (!item) return { stockAlerts: 0, error: 'Item not found' };
 
     let stockAlerts = 0;
-    let priceAlerts = 0;
 
     try {
       const scraped = await ScraperService.fetchItemDetails(item.shop_id, item.item_id, item.url);
@@ -49,15 +48,12 @@ export class SchedulerService {
 
         const wasOut = variant.stock === 0;
         const nowIn = fresh.available && fresh.stock > 0;
-        const prevPrice = variant.price;
-        const newPrice = fresh.price;
 
         if (wasOut && nowIn) {
           const sent = await TelegramService.sendStockAlert({
             itemName: item.name,
             variantName: variant.name,
             stock: fresh.stock,
-            price: newPrice || prevPrice,
             url: item.url,
             imageUrl: item.image
           });
@@ -67,49 +63,23 @@ export class SchedulerService {
             itemName: item.name,
             variantName: variant.name,
             alertType: 'STOCK_RESTOCKED',
-            message: `"${variant.name}" is back in stock!`
+            message: `Variant "${variant.name}" is back in stock!`
           });
 
           if (sent) stockAlerts++;
         }
 
-        if (prevPrice > 0 && newPrice > 0 && newPrice < prevPrice) {
-          const sent = await TelegramService.sendPriceAlert({
-            itemName: item.name,
-            variantName: variant.name,
-            oldPrice: prevPrice,
-            newPrice,
-            url: item.url,
-            imageUrl: item.image
-          });
-
-          dbService.logAlert({
-            itemId: item.id,
-            itemName: item.name,
-            variantName: variant.name,
-            alertType: 'PRICE_DROP',
-            message: `Price: ${TelegramService.formatRupiah(prevPrice)} → ${TelegramService.formatRupiah(newPrice)}`
-          });
-
-          if (sent) priceAlerts++;
-        }
-
-        if (newPrice > 0 && newPrice !== prevPrice) {
-          dbService.recordPrice(item.id, variant.model_id, newPrice);
-        }
-
         dbService.updateVariant(
           variant.id,
-          nowIn ? fresh.stock : 0,
-          newPrice || prevPrice
+          nowIn ? fresh.stock : 0
         );
       }
 
       dbService.updateItemLastChecked(item.id);
-      return { stockAlerts, priceAlerts };
+      return { stockAlerts };
     } catch (err: any) {
       console.error(`Check failed for item ${itemId}:`, err.message);
-      return { stockAlerts: 0, priceAlerts: 0, error: err.message };
+      return { stockAlerts: 0, error: err.message };
     }
   }
 
@@ -119,7 +89,7 @@ export class SchedulerService {
 
     for (const item of items) {
       const result = await this.checkItem(item.id);
-      console.log(`Checked "${item.name}": ${result.stockAlerts} stock alerts, ${result.priceAlerts} price alerts`);
+      console.log(`Checked "${item.name}": ${result.stockAlerts} stock alerts`);
       await new Promise((r) => setTimeout(r, 3000 + Math.random() * 2000));
     }
   }

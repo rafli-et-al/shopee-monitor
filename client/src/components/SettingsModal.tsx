@@ -147,7 +147,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 onChange={(e) => setCheckCron(e.target.value)}
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Runs both stock &amp; price checks. Default: <span className="code-pill">0 * * * *</span> (every hour)
+                Runs automated stock checks. Default: <span className="code-pill">0 * * * *</span> (every hour)
               </span>
             </div>
           </div>

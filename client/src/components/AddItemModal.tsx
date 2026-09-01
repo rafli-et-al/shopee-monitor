@@ -79,7 +79,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const variantsToSave = preview.variants.map((v) => ({
       model_id: v.model_id,
       name: v.name,
-      price: v.price,
       stock: v.stock,
       is_tracked: selectedVariants[v.model_id] ? 1 : 0
     }));
@@ -125,14 +124,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setPreview(null);
     setSelectedVariants({});
     onClose();
-  };
-
-  const formatPrice = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0
-    }).format(val);
   };
 
   return (
@@ -215,9 +206,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                          {formatPrice(variant.price)}
-                        </span>
                         <span className={`badge ${isOutOfStock ? 'badge-out-stock' : 'badge-in-stock'}`}>
                           {isOutOfStock ? 'Out of Stock' : 'In Stock'}
                         </span>

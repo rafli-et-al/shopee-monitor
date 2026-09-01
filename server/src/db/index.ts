@@ -30,20 +30,11 @@ db.exec(`
     item_id TEXT NOT NULL,
     model_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    price INTEGER NOT NULL DEFAULT 0,
     stock INTEGER NOT NULL DEFAULT 0,
     is_tracked INTEGER NOT NULL DEFAULT 1,
     last_notified_stock INTEGER DEFAULT -1,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS price_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    item_id TEXT NOT NULL,
-    model_id TEXT NOT NULL,
-    price INTEGER NOT NULL,
-    recorded_at TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS alerts (
@@ -79,7 +70,6 @@ export interface VariantRecord {
   item_id: string;
   model_id: string;
   name: string;
-  price: number;
   stock: number;
   is_tracked: number;
   last_notified_stock: number;
@@ -99,7 +89,7 @@ export interface AlertRecord {
 export const dbService = {
   getAllItems(): (ItemRecord & { variants: VariantRecord[] })[] {
     const items = db.prepare('SELECT * FROM items ORDER BY created_at DESC').all() as ItemRecord[];
-    const getVariants = db.prepare('SELECT * FROM variants WHERE item_id = ?');
+    const getVariants = db.prepare('SELECT id, item_id, model_id, name, stock, is_tracked, last_notified_stock, updated_at FROM variants WHERE item_id = ?');
 
     return items.map((item) => ({
       ...item,
@@ -111,7 +101,7 @@ export const dbService = {
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id) as ItemRecord | undefined;
     if (!item) return null;
 
-    const variants = db.prepare('SELECT * FROM variants WHERE item_id = ?').all(id) as VariantRecord[];
+    const variants = db.prepare('SELECT id, item_id, model_id, name, stock, is_tracked, last_notified_stock, updated_at FROM variants WHERE item_id = ?').all(id) as VariantRecord[];
     return {
       ...item,
       variants,
@@ -124,7 +114,7 @@ export const dbService = {
 
   createItem(
     item: { id: string; shop_id: string; item_id: string; name: string; image: string | null; url: string },
-    variants: Array<{ id: string; model_id: string; name: string; price: number; stock: number; is_tracked: number }>
+    variants: Array<{ id: string; model_id: string; name: string; stock: number; is_tracked: number }>
   ) {
     const now = new Date().toISOString();
     const insertItem = db.prepare(`
@@ -133,21 +123,15 @@ export const dbService = {
     `);
 
     const insertVariant = db.prepare(`
-      INSERT INTO variants (id, item_id, model_id, name, price, stock, is_tracked, last_notified_stock, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const insertPrice = db.prepare(`
-      INSERT INTO price_history (item_id, model_id, price, recorded_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO variants (id, item_id, model_id, name, stock, is_tracked, last_notified_stock, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const transaction = db.transaction(() => {
       insertItem.run(item.id, item.shop_id, item.item_id, item.name, item.image, item.url, now, now);
 
       for (const v of variants) {
-        insertVariant.run(v.id, item.id, v.model_id, v.name, v.price, v.stock, v.is_tracked, v.stock, now);
-        insertPrice.run(item.id, v.model_id, v.price, now);
+        insertVariant.run(v.id, item.id, v.model_id, v.name, v.stock, v.is_tracked, v.stock, now);
       }
     });
 
@@ -163,34 +147,25 @@ export const dbService = {
     db.prepare('UPDATE items SET last_checked_at = ? WHERE id = ?').run(now, id);
   },
 
-  updateVariant(variantId: string, stock: number, price: number, lastNotifiedStock?: number) {
+  updateVariant(variantId: string, stock: number, lastNotifiedStock?: number) {
     const now = new Date().toISOString();
     if (lastNotifiedStock !== undefined) {
       db.prepare(`
         UPDATE variants
-        SET stock = ?, price = ?, last_notified_stock = ?, updated_at = ?
+        SET stock = ?, last_notified_stock = ?, updated_at = ?
         WHERE id = ?
-      `).run(stock, price, lastNotifiedStock, now, variantId);
+      `).run(stock, lastNotifiedStock, now, variantId);
     } else {
       db.prepare(`
         UPDATE variants
-        SET stock = ?, price = ?, updated_at = ?
+        SET stock = ?, updated_at = ?
         WHERE id = ?
-      `).run(stock, price, now, variantId);
+      `).run(stock, now, variantId);
     }
-  },
-
-  recordPrice(itemId: string, modelId: string, price: number) {
-    const now = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO price_history (item_id, model_id, price, recorded_at)
-      VALUES (?, ?, ?, ?)
-    `).run(itemId, modelId, price, now);
   },
 
   deleteItem(id: string) {
     const transaction = db.transaction(() => {
-      db.prepare('DELETE FROM price_history WHERE item_id = ?').run(id);
       db.prepare('DELETE FROM variants WHERE item_id = ?').run(id);
       db.prepare('DELETE FROM items WHERE id = ?').run(id);
     });

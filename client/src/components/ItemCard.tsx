@@ -12,14 +12,6 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
   const [checking, setChecking] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const formatPrice = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0
-    }).format(val);
-  };
-
   const handleToggleActive = async () => {
     try {
       const res = await fetch(`/api/items/${item.id}/toggle`, { method: 'PATCH' });
@@ -37,7 +29,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
       const res = await fetch(`/api/items/${item.id}/check`, { method: 'POST' });
       if (!res.ok) throw new Error('Check failed');
       onRefresh();
-      showToast('Checked latest stock & price!', 'success');
+      showToast('Checked latest stock status!', 'success');
     } catch {
       showToast('Failed to execute check', 'error');
     } finally {
@@ -107,9 +99,6 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
                 {v.name}
               </span>
               <div className="variant-meta">
-                {v.price > 0 && (
-                  <span className="variant-price">{formatPrice(v.price)}</span>
-                )}
                 <span className={`badge ${isOut ? 'badge-out-stock' : 'badge-in-stock'}`}>
                   {isOut ? 'Out of Stock' : 'In Stock'}
                 </span>
