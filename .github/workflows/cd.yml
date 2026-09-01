@@ -33,12 +33,14 @@ jobs:
             *develop*)
               echo "ENV_NAME=qa" >> $GITHUB_OUTPUT
               echo "PROJECT_NAME=shopee-qa" >> $GITHUB_OUTPUT
+              echo "CONTAINER_NAME=shopee-monitor-qa" >> $GITHUB_OUTPUT
               echo "DOCKER_TAG=qa" >> $GITHUB_OUTPUT
               echo "COMPOSE_FILE=docker-compose.qa.yml" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "ENV_NAME=prod" >> $GITHUB_OUTPUT
               echo "PROJECT_NAME=shopee-prod" >> $GITHUB_OUTPUT
+              echo "CONTAINER_NAME=shopee-monitor-app" >> $GITHUB_OUTPUT
               echo "DOCKER_TAG=latest" >> $GITHUB_OUTPUT
               echo "COMPOSE_FILE=docker-compose.yml" >> $GITHUB_OUTPUT
               ;;
@@ -88,7 +90,6 @@ jobs:
             git pull || true
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
             sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull || true
-            sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} stop || true
-            sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} rm -f || true
+            sudo docker rm -f ${{ steps.env-vars.outputs.CONTAINER_NAME }} || true
             sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} up -d --remove-orphans
 
