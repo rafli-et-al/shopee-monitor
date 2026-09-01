@@ -71,7 +71,8 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             cd ${{ secrets.VPS_APP_DIR || '~/shopee-monitor' }}
+            git pull || true
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull || true
+            docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull
             docker compose -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} up -d --remove-orphans
 

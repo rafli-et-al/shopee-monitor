@@ -5,16 +5,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: shopee-monitor:qa
+    image: ghcr.io/rafli-et-al/shopee-monitor:qa
     container_name: shopee-monitor-qa
     restart: unless-stopped
     ports:
-      - ":3000"
+      - "${QA_PORT:-3001}:3000"
     environment:
       - PORT=3000
       - NODE_ENV=development
-      - TELEGRAM_BOT_TOKEN=
-      - TELEGRAM_CHAT_ID=
-      - STOCK_CHECK_CRON=
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - STOCK_CHECK_CRON=${STOCK_CHECK_CRON:-0 */6 * * *}
     volumes:
       - ./data/qa:/app/data

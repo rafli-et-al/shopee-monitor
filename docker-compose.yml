@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: shopee-monitor:latest
+    image: ghcr.io/rafli-et-al/shopee-monitor:latest
     container_name: shopee-monitor-app
     restart: unless-stopped
     ports:
