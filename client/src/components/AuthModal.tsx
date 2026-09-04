@@ -15,12 +15,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
   const [telegramChatId, setTelegramChatId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
 
     const cleanUsername = username.trim();
     if (!cleanUsername) {
@@ -48,7 +50,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
 
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.error || 'Authentication failed');
+        setError(json.error || 'Authentication failed');
+        setErrorCode(json.code || null);
+        return;
       }
 
       localStorage.setItem('shopee_token', json.token);
@@ -56,6 +60,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
       onSuccess(json.user, json.token);
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
+      setErrorCode(null);
     } finally {
       setLoading(false);
     }
@@ -81,7 +86,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
             type="button"
             className={`tab-btn ${!isRegister ? 'active' : ''}`}
             style={{ flex: 1, textAlign: 'center', borderRadius: 0, padding: '0.75rem' }}
-            onClick={() => { setIsRegister(false); setError(null); }}
+            onClick={() => { setIsRegister(false); setError(null); setErrorCode(null); }}
           >
             Sign In
           </button>
@@ -89,7 +94,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
             type="button"
             className={`tab-btn ${isRegister ? 'active' : ''}`}
             style={{ flex: 1, textAlign: 'center', borderRadius: 0, padding: '0.75rem' }}
-            onClick={() => { setIsRegister(true); setError(null); }}
+            onClick={() => { setIsRegister(true); setError(null); setErrorCode(null); }}
           >
             New Account
           </button>
@@ -106,7 +111,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
                 borderRadius: '8px',
                 fontSize: '0.85rem'
               }}>
-                {error}
+                <div>{error}</div>
+                {errorCode === 'USER_NOT_FOUND' && !isRegister && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{
+                      marginTop: '0.6rem',
+                      width: '100%',
+                      fontSize: '0.8rem',
+                      padding: '0.45rem 0.75rem',
+                      justifyContent: 'center',
+                      gap: '0.4rem'
+                    }}
+                    onClick={() => {
+                      setIsRegister(true);
+                      setError(null);
+                      setErrorCode(null);
+                    }}
+                  >
+                    <UserPlus size={14} />
+                    Create account as @{username.trim()}
+                  </button>
+                )}
               </div>
             )}
 

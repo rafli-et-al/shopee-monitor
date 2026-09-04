@@ -74,8 +74,19 @@ export class AuthController {
       const trimmedUsername = String(username).trim().toLowerCase();
       const user = dbService.findUserByUsername(trimmedUsername);
 
-      if (!user || !bcrypt.compareSync(String(password), user.password_hash)) {
-        res.status(401).json({ error: 'Invalid username or password.' });
+      if (!user) {
+        res.status(404).json({
+          error: `User '@${trimmedUsername}' not found. Please create an account first.`,
+          code: 'USER_NOT_FOUND'
+        });
+        return;
+      }
+
+      if (!bcrypt.compareSync(String(password), user.password_hash)) {
+        res.status(401).json({
+          error: 'Incorrect password. Please try again.',
+          code: 'INVALID_PASSWORD'
+        });
         return;
       }
 
