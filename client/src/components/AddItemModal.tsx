@@ -32,9 +32,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setSelectedVariants({});
 
     try {
+      const token = localStorage.getItem('shopee_token');
       const res = await fetch('/api/items/preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ url: url.trim() })
       });
       const json = await res.json();
@@ -91,9 +95,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
     setSaving(true);
     try {
+      const token = localStorage.getItem('shopee_token');
       const res = await fetch('/api/items', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           shop_id: preview.shop_id,
           item_id: preview.item_id,

@@ -3,6 +3,7 @@ import { dbService } from '../db';
 import { ScraperService } from '../services/scraper.service';
 import { TelegramService } from '../services/telegram.service';
 import { SchedulerService } from '../services/scheduler.service';
+import { AuthRequest } from '../middleware/auth.middleware';
 import crypto from 'crypto';
 
 export class ItemController {
@@ -39,8 +40,9 @@ export class ItemController {
     }
   }
 
-  static async createItem(req: Request, res: Response): Promise<void> {
+  static async createItem(req: AuthRequest, res: Response): Promise<void> {
     try {
+      const userId = req.user!.id;
       const { shop_id, item_id, name, image, url, variants } = req.body;
 
       if (!shop_id || !item_id || !name || !url) {
@@ -48,9 +50,9 @@ export class ItemController {
         return;
       }
 
-      const existing = dbService.findItemByShopAndItem(shop_id, item_id);
+      const existing = dbService.findItemByShopAndItemForUser(userId, shop_id, item_id);
       if (existing) {
-        res.status(409).json({ error: 'This item is already being tracked.', itemId: existing.id });
+        res.status(409).json({ error: 'This item is already being tracked in your account.', itemId: existing.id });
         return;
       }
 
@@ -66,6 +68,7 @@ export class ItemController {
       }));
 
       dbService.createItem(
+        userId,
         {
           id: itemId,
           shop_id,
@@ -77,72 +80,88 @@ export class ItemController {
         formattedVariants
       );
 
-      const created = dbService.getItemById(itemId);
+      const created = dbService.getItemByIdForUser(itemId, userId);
       res.status(201).json({ success: true, data: created });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to save item.' });
     }
   }
 
-  static async getItems(_req: Request, res: Response): Promise<void> {
+  static async getItems(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const items = dbService.getAllItems();
+      const userId = req.user!.id;
+      const items = dbService.getItemsByUserId(userId);
       res.json({ success: true, data: items });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to retrieve items.' });
     }
   }
 
-  static async toggleItem(req: Request, res: Response): Promise<void> {
+  static async toggleItem(req: AuthRequest, res: Response): Promise<void> {
     try {
+      const userId = req.user!.id;
       const { id } = req.params;
-      const item = dbService.getItemById(id);
+      const item = dbService.getItemByIdForUser(id, userId);
       if (!item) {
-        res.status(404).json({ error: 'Item not found.' });
+        res.status(404).json({ error: 'Item not found in your account.' });
         return;
       }
 
       const nextStatus = item.is_active === 1 ? false : true;
-      dbService.updateItemStatus(id, nextStatus);
+      dbService.updateItemStatusForUser(id, userId, nextStatus);
       res.json({ success: true, is_active: nextStatus ? 1 : 0 });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to update item status.' });
     }
   }
 
-  static async deleteItem(req: Request, res: Response): Promise<void> {
+  static async deleteItem(req: AuthRequest, res: Response): Promise<void> {
     try {
+      const userId = req.user!.id;
       const { id } = req.params;
-      dbService.deleteItem(id);
+      const item = dbService.getItemByIdForUser(id, userId);
+      if (!item) {
+        res.status(404).json({ error: 'Item not found in your account.' });
+        return;
+      }
+
+      dbService.deleteItemForUser(id, userId);
       res.json({ success: true, message: 'Item deleted successfully.' });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to delete item.' });
     }
   }
 
-  static async checkItemNow(req: Request, res: Response): Promise<void> {
+  static async checkItemNow(req: AuthRequest, res: Response): Promise<void> {
     try {
+      const userId = req.user!.id;
       const { id } = req.params;
+      const item = dbService.getItemByIdForUser(id, userId);
+      if (!item) {
+        res.status(404).json({ error: 'Item not found in your account.' });
+        return;
+      }
+
       const result = await SchedulerService.checkItem(id);
-      const updated = dbService.getItemById(id);
+      const updated = dbService.getItemByIdForUser(id, userId);
       res.json({ success: !result.error, data: updated, stockAlerts: result.stockAlerts, error: result.error });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to execute immediate check.' });
     }
   }
 
-  static async getSettings(_req: Request, res: Response): Promise<void> {
+  static async getSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
       const settings = dbService.getAllSettings();
       const botToken = settings.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN || '';
-      const chatId = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
       const checkCron = settings.check_cron || process.env.STOCK_CHECK_CRON || '0 * * * *';
+      const user = req.user ? dbService.findUserById(req.user.id) : undefined;
 
       res.json({
         success: true,
         data: {
           telegram_bot_token: botToken,
-          telegram_chat_id: chatId,
+          telegram_chat_id: user?.telegram_chat_id || '',
           check_cron: checkCron
         }
       });
@@ -151,15 +170,15 @@ export class ItemController {
     }
   }
 
-  static async updateSettings(req: Request, res: Response): Promise<void> {
+  static async updateSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { telegram_bot_token, telegram_chat_id, check_cron } = req.body;
 
       if (telegram_bot_token !== undefined) {
         dbService.setSetting('telegram_bot_token', String(telegram_bot_token).trim());
       }
-      if (telegram_chat_id !== undefined) {
-        dbService.setSetting('telegram_chat_id', String(telegram_chat_id).trim());
+      if (telegram_chat_id !== undefined && req.user) {
+        dbService.updateUserTelegramChatId(req.user.id, telegram_chat_id ? String(telegram_chat_id).trim() : null);
       }
       if (check_cron !== undefined) {
         dbService.setSetting('check_cron', String(check_cron).trim());
@@ -167,7 +186,7 @@ export class ItemController {
 
       SchedulerService.restart();
 
-      res.json({ success: true, message: 'Settings updated and scheduler restarted.' });
+      res.json({ success: true, message: 'Settings updated successfully.' });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to save settings.' });
     }
@@ -183,12 +202,14 @@ export class ItemController {
     }
   }
 
-  static async getAlerts(_req: Request, res: Response): Promise<void> {
+  static async getAlerts(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const alerts = dbService.getAlerts(100);
+      const userId = req.user!.id;
+      const alerts = dbService.getAlertsByUserId(userId, 100);
       res.json({ success: true, data: alerts });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to load alerts.' });
     }
   }
 }
+

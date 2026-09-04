@@ -1,18 +1,23 @@
 import React from 'react';
-import { ShoppingBag, Plus, Settings as SettingsIcon, Bell } from 'lucide-react';
+import { ShoppingBag, Plus, Settings as SettingsIcon, Bell, User as UserIcon, LogOut } from 'lucide-react';
+import { User } from '../types';
 
 interface HeaderProps {
   onOpenAddModal: () => void;
   onOpenSettingsModal: () => void;
   onOpenAlertsModal: () => void;
   unreadAlertCount: number;
+  user?: User | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddModal,
   onOpenSettingsModal,
   onOpenAlertsModal,
-  unreadAlertCount
+  unreadAlertCount,
+  user,
+  onLogout
 }) => {
   return (
     <header className="header">
@@ -28,6 +33,27 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="header-actions">
+          {user && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.4rem 0.75rem',
+                background: 'var(--bg-card)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                fontWeight: 500
+              }}
+              title={`Logged in as ${user.username}`}
+            >
+              <UserIcon size={14} style={{ color: 'var(--accent-primary)' }} />
+              <span>@{user.username}</span>
+            </div>
+          )}
+
           <button className="btn btn-icon" onClick={onOpenAlertsModal} title="Notification History">
             <Bell size={18} />
             {unreadAlertCount > 0 && <span className="badge badge-in-stock">{unreadAlertCount}</span>}
@@ -42,6 +68,12 @@ export const Header: React.FC<HeaderProps> = ({
             <Plus size={16} />
             Track Item
           </button>
+
+          {user && onLogout && (
+            <button className="btn btn-secondary btn-icon" onClick={onLogout} title="Log Out">
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
       </div>
     </header>

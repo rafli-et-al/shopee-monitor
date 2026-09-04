@@ -52,3 +52,9 @@ export interface AppSettings {
   telegram_chat_id: string;
   check_cron: string;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  telegram_chat_id: string | null;
+}

@@ -19,7 +19,16 @@ async function runTests() {
     throw new Error('URL format 2 parsing failed');
   }
 
-  console.log('\n=== 2. Testing Database Operations & Variant Tracking ===');
+  console.log('\n=== 2. Testing User Creation & Scoped Database Operations ===');
+  const testUserId = crypto.randomUUID();
+  const testUser = dbService.createUser({
+    id: testUserId,
+    username: 'test_shopper_' + Date.now(),
+    password_hash: 'hashed_pw_abc123',
+    telegram_chat_id: '1883216058'
+  });
+  console.log('Created User:', testUser.username, 'ID:', testUser.id);
+
   const testShopId = 'test_shop_' + Date.now();
   const testItemId = 'test_item_' + Date.now();
   const testId = crypto.randomUUID();
@@ -42,6 +51,7 @@ async function runTests() {
   ];
 
   dbService.createItem(
+    testUser.id,
     {
       id: testId,
       shop_id: testShopId,
@@ -53,7 +63,9 @@ async function runTests() {
     testVariants
   );
 
-  const retrieved = dbService.getItemById(testId);
+  const userItems = dbService.getItemsByUserId(testUser.id);
+  console.log('User Items Count:', userItems.length);
+  const retrieved = dbService.getItemByIdForUser(testId, testUser.id);
   console.log('Retrieved Item from DB:', retrieved?.name);
   console.log('Variants in DB:', retrieved?.variants.map((v) => ({ name: v.name, stock: v.stock })));
 
@@ -70,6 +82,7 @@ async function runTests() {
   if (prevStock <= 0 && newStock > 0) {
     console.log('Stock restock detected: Variant is BACK IN STOCK!');
     dbService.logAlert({
+      userId: testUser.id,
       itemId: retrieved.id,
       itemName: retrieved.name,
       variantName: trackedVariant.name,
@@ -80,7 +93,7 @@ async function runTests() {
 
   dbService.updateVariant(trackedVariant.id, newStock, newStock);
 
-  const alerts = dbService.getAlerts(10);
+  const alerts = dbService.getAlertsByUserId(testUser.id, 10);
   console.log('\nLogged Alerts in DB:', alerts.length);
   for (const alert of alerts) {
     console.log(`- [${alert.alert_type}] ${alert.item_name} (${alert.variant_name}): ${alert.message}`);
@@ -92,7 +105,7 @@ async function runTests() {
   console.log('Retrieved Token:', dbService.getSetting('telegram_bot_token'));
   console.log('Retrieved Chat ID:', dbService.getSetting('telegram_chat_id'));
 
-  dbService.deleteItem(testId);
+  dbService.deleteItemForUser(testId, testUser.id);
   console.log('\nCleaned up test item successfully.');
 
   console.log('\n ALL STOCK MONITORING BUSINESS LOGIC CHECKS PASSED!');

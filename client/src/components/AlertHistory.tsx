@@ -25,7 +25,10 @@ export const AlertHistory: React.FC<AlertHistoryProps> = ({
   const loadAlerts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/alerts');
+      const token = localStorage.getItem('shopee_token');
+      const res = await fetch('/api/alerts', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       const json = await res.json();
       if (json.success) {
         setAlerts(json.data);

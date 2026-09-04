@@ -34,6 +34,7 @@ export class SchedulerService {
     const item = dbService.getItemById(itemId);
     if (!item) return { stockAlerts: 0, error: 'Item not found' };
 
+    const owner = dbService.getItemOwner(itemId);
     let stockAlerts = 0;
 
     try {
@@ -55,10 +56,12 @@ export class SchedulerService {
             variantName: variant.name,
             stock: fresh.stock,
             url: item.url,
-            imageUrl: item.image
+            imageUrl: item.image,
+            chatId: owner?.telegram_chat_id
           });
 
           dbService.logAlert({
+            userId: owner?.user_id || null,
             itemId: item.id,
             itemName: item.name,
             variantName: variant.name,
@@ -84,7 +87,7 @@ export class SchedulerService {
   }
 
   static async runCheck() {
-    const items = dbService.getAllItems().filter((i) => i.is_active === 1);
+    const items = dbService.getAllActiveItems();
     console.log(`Running scheduled check for ${items.length} item(s)...`);
 
     for (const item of items) {

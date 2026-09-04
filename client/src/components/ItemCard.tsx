@@ -12,9 +12,21 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
   const [checking, setChecking] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem('shopee_token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
   const handleToggleActive = async () => {
     try {
-      const res = await fetch(`/api/items/${item.id}/toggle`, { method: 'PATCH' });
+      const res = await fetch(`/api/items/${item.id}/toggle`, {
+        method: 'PATCH',
+        headers: getAuthHeader()
+      });
       if (!res.ok) throw new Error('Failed to update status');
       onRefresh();
       showToast(item.is_active ? 'Monitoring paused' : 'Monitoring resumed', 'success');
@@ -26,7 +38,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
   const handleCheckNow = async () => {
     setChecking(true);
     try {
-      const res = await fetch(`/api/items/${item.id}/check`, { method: 'POST' });
+      const res = await fetch(`/api/items/${item.id}/check`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
       if (!res.ok) throw new Error('Check failed');
       onRefresh();
       showToast('Checked latest stock status!', 'success');
@@ -42,7 +57,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
 
     setDeleting(true);
     try {
-      const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/items/${item.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
       if (!res.ok) throw new Error('Delete failed');
       onRefresh();
       showToast('Item deleted', 'success');

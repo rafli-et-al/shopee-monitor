@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AlertHistory } from './components/AlertHistory';
-import { Item } from './types';
+import { AuthModal } from './components/AuthModal';
+import { Item, User } from './types';
 import { Layers, PackageX, PackageCheck, Send, Plus, Search } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,9 +33,24 @@ export const App: React.FC = () => {
     }, 4000);
   };
 
-  const fetchItems = async () => {
+  const getHeaders = (customToken?: string): Record<string, string> => {
+    const token = customToken || localStorage.getItem('shopee_token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const fetchItems = useCallback(async (customToken?: string) => {
     try {
-      const res = await fetch('/api/items');
+      const res = await fetch('/api/items', {
+        headers: getHeaders(customToken)
+      });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       const json = await res.json();
       if (json.success) {
         setItems(json.data);
@@ -41,11 +60,13 @@ export const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchAlertCount = async () => {
+  const fetchAlertCount = useCallback(async (customToken?: string) => {
     try {
-      const res = await fetch('/api/alerts');
+      const res = await fetch('/api/alerts', {
+        headers: getHeaders(customToken)
+      });
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
         const latestId = json.data[0].id;
@@ -54,28 +75,74 @@ export const App: React.FC = () => {
         }
       }
     } catch {}
-  };
+  }, [seenAlertId]);
 
-  const checkTelegramStatus = async () => {
+  const checkTelegramStatus = useCallback(async (customToken?: string) => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/api/settings', {
+        headers: getHeaders(customToken)
+      });
       const json = await res.json();
       if (json.success && json.data) {
         setTelegramConfigured(!!(json.data.telegram_bot_token && json.data.telegram_chat_id));
       }
     } catch {}
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('shopee_token');
+    setUser(null);
+    setItems([]);
+    setIsAuthOpen(true);
+    setLoading(false);
+  };
+
+  const handleAuthSuccess = (authenticatedUser: User, token: string) => {
+    setUser(authenticatedUser);
+    setIsAuthOpen(false);
+    fetchItems(token);
+    checkTelegramStatus(token);
+    fetchAlertCount(token);
   };
 
   useEffect(() => {
-    fetchItems();
-    checkTelegramStatus();
-    fetchAlertCount();
+    const token = localStorage.getItem('shopee_token');
+    if (!token) {
+      setIsAuthOpen(true);
+      setLoading(false);
+      return;
+    }
+
+    fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Session expired');
+        return res.json();
+      })
+      .then((json) => {
+        if (json.success && json.user) {
+          setUser(json.user);
+          fetchItems(token);
+          checkTelegramStatus(token);
+          fetchAlertCount(token);
+        } else {
+          handleLogout();
+        }
+      })
+      .catch(() => {
+        handleLogout();
+      });
+  }, [fetchItems, checkTelegramStatus, fetchAlertCount]);
+
+  useEffect(() => {
+    if (!user) return;
     const interval = setInterval(() => {
       fetchItems();
       fetchAlertCount();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user, fetchItems, fetchAlertCount]);
 
   const totalTrackedVariants = items.reduce(
     (acc, item) => acc + item.variants.filter((v) => v.is_tracked === 1).length,
@@ -111,6 +178,8 @@ export const App: React.FC = () => {
           setSeenAlertId((prev) => prev);
         }}
         unreadAlertCount={alertCount}
+        user={user}
+        onLogout={handleLogout}
       />
 
       <main className="container" style={{ flex: 1, paddingBottom: '3rem' }}>
@@ -263,6 +332,12 @@ export const App: React.FC = () => {
       <AlertHistory
         isOpen={isAlertsOpen}
         onClose={() => setIsAlertsOpen(false)}
+        showToast={showToast}
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onSuccess={handleAuthSuccess}
         showToast={showToast}
       />
 

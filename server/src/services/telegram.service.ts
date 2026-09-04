@@ -63,9 +63,11 @@ export class TelegramService {
     stock: number;
     url: string;
     imageUrl?: string | null;
+    chatId?: string | null;
   }): Promise<boolean> {
-    const { botToken, chatId } = this.getCredentials();
-    if (!botToken || !chatId) return false;
+    const { botToken, chatId: defaultChatId } = this.getCredentials();
+    const targetChat = (params.chatId || defaultChatId || '').trim();
+    if (!botToken || !targetChat) return false;
 
     const caption = `🚨 <b>ITEM BACK IN STOCK!</b>\n\n` +
       `📦 <b>Product:</b> ${escapeHtml(params.itemName)}\n` +
@@ -78,7 +80,7 @@ export class TelegramService {
         await axios.post(
           `https://api.telegram.org/bot${botToken}/sendPhoto`,
           {
-            chat_id: chatId,
+            chat_id: targetChat,
             photo: params.imageUrl,
             caption,
             parse_mode: 'HTML'
@@ -89,7 +91,7 @@ export class TelegramService {
         await axios.post(
           `https://api.telegram.org/bot${botToken}/sendMessage`,
           {
-            chat_id: chatId,
+            chat_id: targetChat,
             text: caption,
             parse_mode: 'HTML',
             disable_web_page_preview: false
@@ -103,7 +105,7 @@ export class TelegramService {
         await axios.post(
           `https://api.telegram.org/bot${botToken}/sendMessage`,
           {
-            chat_id: chatId,
+            chat_id: targetChat,
             text: caption,
             parse_mode: 'HTML'
           },

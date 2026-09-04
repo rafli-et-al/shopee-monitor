@@ -19,9 +19,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     if (isOpen) loadSettings();
   }, [isOpen]);
 
+  const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem('shopee_token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
   const loadSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/api/settings', {
+        headers: {
+          ...getAuthHeader()
+        }
+      });
       const json = await res.json();
       if (json.success && json.data) {
         setBotToken(json.data.telegram_bot_token || '');
@@ -43,7 +56,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     try {
       const res = await fetch('/api/telegram/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify({ bot_token: botToken.trim(), chat_id: chatId.trim() })
       });
       const json = await res.json();
@@ -63,7 +79,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify({
           telegram_bot_token: botToken.trim(),
           telegram_chat_id: chatId.trim(),

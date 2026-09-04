@@ -12,9 +12,28 @@ const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
 
+const itemColumns = db.prepare("PRAGMA table_info(items)").all() as { name: string }[];
+const hasUserId = itemColumns.some((c) => c.name === 'user_id');
+if (itemColumns.length > 0 && !hasUserId) {
+  db.exec(`
+    DROP TABLE IF EXISTS variants;
+    DROP TABLE IF EXISTS alerts;
+    DROP TABLE IF EXISTS items;
+  `);
+}
+
 db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    telegram_chat_id TEXT,
+    created_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS items (
     id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
     shop_id TEXT NOT NULL,
     item_id TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -22,7 +41,8 @@ db.exec(`
     url TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
     last_checked_at TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS variants (
@@ -39,12 +59,14 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
     item_id TEXT,
     item_name TEXT,
     variant_name TEXT,
     alert_type TEXT NOT NULL,
     message TEXT NOT NULL,
-    sent_at TEXT NOT NULL
+    sent_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS settings (
@@ -53,8 +75,17 @@ db.exec(`
   );
 `);
 
+export interface UserRecord {
+  id: string;
+  username: string;
+  password_hash: string;
+  telegram_chat_id: string | null;
+  created_at: string;
+}
+
 export interface ItemRecord {
   id: string;
+  user_id: string;
   shop_id: string;
   item_id: string;
   name: string;
@@ -78,6 +109,7 @@ export interface VariantRecord {
 
 export interface AlertRecord {
   id: number;
+  user_id: string | null;
   item_id: string | null;
   item_name: string | null;
   variant_name: string | null;
@@ -87,14 +119,47 @@ export interface AlertRecord {
 }
 
 export const dbService = {
-  getAllItems(): (ItemRecord & { variants: VariantRecord[] })[] {
-    const items = db.prepare('SELECT * FROM items ORDER BY created_at DESC').all() as ItemRecord[];
+  createUser(user: { id: string; username: string; password_hash: string; telegram_chat_id?: string | null }): UserRecord {
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO users (id, username, password_hash, telegram_chat_id, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(user.id, user.username.toLowerCase().trim(), user.password_hash, user.telegram_chat_id || null, now);
+
+    return this.findUserById(user.id)!;
+  },
+
+  findUserByUsername(username: string): UserRecord | undefined {
+    return db.prepare('SELECT * FROM users WHERE username = ?').get(username.toLowerCase().trim()) as UserRecord | undefined;
+  },
+
+  findUserById(id: string): UserRecord | undefined {
+    return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRecord | undefined;
+  },
+
+  updateUserTelegramChatId(userId: string, chatId: string | null) {
+    db.prepare('UPDATE users SET telegram_chat_id = ? WHERE id = ?').run(chatId ? chatId.trim() : null, userId);
+  },
+
+  getItemsByUserId(userId: string): (ItemRecord & { variants: VariantRecord[] })[] {
+    const items = db.prepare('SELECT * FROM items WHERE user_id = ? ORDER BY created_at DESC').all(userId) as ItemRecord[];
     const getVariants = db.prepare('SELECT id, item_id, model_id, name, stock, is_tracked, last_notified_stock, updated_at FROM variants WHERE item_id = ?');
 
     return items.map((item) => ({
       ...item,
       variants: getVariants.all(item.id) as VariantRecord[],
     }));
+  },
+
+  getItemByIdForUser(id: string, userId: string): (ItemRecord & { variants: VariantRecord[] }) | null {
+    const item = db.prepare('SELECT * FROM items WHERE id = ? AND user_id = ?').get(id, userId) as ItemRecord | undefined;
+    if (!item) return null;
+
+    const variants = db.prepare('SELECT id, item_id, model_id, name, stock, is_tracked, last_notified_stock, updated_at FROM variants WHERE item_id = ?').all(id) as VariantRecord[];
+    return {
+      ...item,
+      variants,
+    };
   },
 
   getItemById(id: string): (ItemRecord & { variants: VariantRecord[] }) | null {
@@ -108,18 +173,46 @@ export const dbService = {
     };
   },
 
-  findItemByShopAndItem(shopId: string, itemId: string): ItemRecord | undefined {
-    return db.prepare('SELECT * FROM items WHERE shop_id = ? AND item_id = ?').get(shopId, itemId) as ItemRecord | undefined;
+  getItemOwner(itemId: string): { user_id: string; telegram_chat_id: string | null } | null {
+    const row = db.prepare(`
+      SELECT i.user_id, u.telegram_chat_id
+      FROM items i
+      JOIN users u ON i.user_id = u.id
+      WHERE i.id = ?
+    `).get(itemId) as { user_id: string; telegram_chat_id: string | null } | undefined;
+    return row || null;
+  },
+
+  getAllActiveItems(): (ItemRecord & { variants: VariantRecord[]; owner_telegram_chat_id: string | null })[] {
+    const items = db.prepare(`
+      SELECT i.*, u.telegram_chat_id as owner_telegram_chat_id
+      FROM items i
+      JOIN users u ON i.user_id = u.id
+      WHERE i.is_active = 1
+      ORDER BY i.created_at DESC
+    `).all() as (ItemRecord & { owner_telegram_chat_id: string | null })[];
+
+    const getVariants = db.prepare('SELECT id, item_id, model_id, name, stock, is_tracked, last_notified_stock, updated_at FROM variants WHERE item_id = ?');
+
+    return items.map((item) => ({
+      ...item,
+      variants: getVariants.all(item.id) as VariantRecord[],
+    }));
+  },
+
+  findItemByShopAndItemForUser(userId: string, shopId: string, itemId: string): ItemRecord | undefined {
+    return db.prepare('SELECT * FROM items WHERE user_id = ? AND shop_id = ? AND item_id = ?').get(userId, shopId, itemId) as ItemRecord | undefined;
   },
 
   createItem(
+    userId: string,
     item: { id: string; shop_id: string; item_id: string; name: string; image: string | null; url: string },
     variants: Array<{ id: string; model_id: string; name: string; stock: number; is_tracked: number }>
   ) {
     const now = new Date().toISOString();
     const insertItem = db.prepare(`
-      INSERT INTO items (id, shop_id, item_id, name, image, url, is_active, created_at, last_checked_at)
-      VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+      INSERT INTO items (id, user_id, shop_id, item_id, name, image, url, is_active, created_at, last_checked_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `);
 
     const insertVariant = db.prepare(`
@@ -128,7 +221,7 @@ export const dbService = {
     `);
 
     const transaction = db.transaction(() => {
-      insertItem.run(item.id, item.shop_id, item.item_id, item.name, item.image, item.url, now, now);
+      insertItem.run(item.id, userId, item.shop_id, item.item_id, item.name, item.image, item.url, now, now);
 
       for (const v of variants) {
         insertVariant.run(v.id, item.id, v.model_id, v.name, v.stock, v.is_tracked, v.stock, now);
@@ -138,8 +231,8 @@ export const dbService = {
     transaction();
   },
 
-  updateItemStatus(id: string, isActive: boolean) {
-    db.prepare('UPDATE items SET is_active = ? WHERE id = ?').run(isActive ? 1 : 0, id);
+  updateItemStatusForUser(id: string, userId: string, isActive: boolean) {
+    db.prepare('UPDATE items SET is_active = ? WHERE id = ? AND user_id = ?').run(isActive ? 1 : 0, id, userId);
   },
 
   updateItemLastChecked(id: string) {
@@ -164,24 +257,24 @@ export const dbService = {
     }
   },
 
-  deleteItem(id: string) {
+  deleteItemForUser(id: string, userId: string) {
     const transaction = db.transaction(() => {
       db.prepare('DELETE FROM variants WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items WHERE id = ?').run(id);
+      db.prepare('DELETE FROM items WHERE id = ? AND user_id = ?').run(id, userId);
     });
     transaction();
   },
 
-  logAlert(alert: { itemId?: string; itemName?: string; variantName?: string; alertType: string; message: string }) {
+  logAlert(alert: { userId?: string | null; itemId?: string; itemName?: string; variantName?: string; alertType: string; message: string }) {
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO alerts (item_id, item_name, variant_name, alert_type, message, sent_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(alert.itemId || null, alert.itemName || null, alert.variantName || null, alert.alertType, alert.message, now);
+      INSERT INTO alerts (user_id, item_id, item_name, variant_name, alert_type, message, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(alert.userId || null, alert.itemId || null, alert.itemName || null, alert.variantName || null, alert.alertType, alert.message, now);
   },
 
-  getAlerts(limit = 50): AlertRecord[] {
-    return db.prepare('SELECT * FROM alerts ORDER BY sent_at DESC LIMIT ?').all(limit) as AlertRecord[];
+  getAlertsByUserId(userId: string, limit = 50): AlertRecord[] {
+    return db.prepare('SELECT * FROM alerts WHERE user_id = ? ORDER BY sent_at DESC LIMIT ?').all(userId, limit) as AlertRecord[];
   },
 
   getSetting(key: string): string | null {
@@ -208,3 +301,4 @@ export const dbService = {
 };
 
 export default db;
+
