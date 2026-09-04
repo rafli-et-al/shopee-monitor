@@ -1,4 +1,7 @@
 import axios from 'axios';
+import path from 'path';
+import fs from 'fs';
+import Database from 'better-sqlite3';
 import { dbService } from '../db';
 import { TelegramService } from './telegram.service';
 
@@ -9,6 +12,9 @@ export class TelegramBotListener {
   private static pollTimer: NodeJS.Timeout | null = null;
 
   static start(): void {
+    if (process.env.ENABLE_TELEGRAM_BOT_POLLING === 'false') {
+      return;
+    }
     if (this.isRunning) return;
     this.shouldStop = false;
     this.isRunning = true;
@@ -67,7 +73,7 @@ export class TelegramBotListener {
         this.pollTimer = setTimeout(() => this.pollLoop(), 1000);
       }
     } catch (err: any) {
-      const waitTime = err.response?.status === 401 || err.response?.status === 404 ? 30000 : 5000;
+      const waitTime = err.response?.status === 409 ? 60000 : (err.response?.status === 401 || err.response?.status === 404 ? 30000 : 5000);
       if (!this.shouldStop) {
         this.pollTimer = setTimeout(() => this.pollLoop(), waitTime);
       }
@@ -83,10 +89,15 @@ export class TelegramBotListener {
 
     let token = '';
     if (text.startsWith('/start') || text.startsWith('/link')) {
-      const parts = text.split(/\s+/);
-      token = parts[1] || '';
+      const cleaned = text.replace(/^(\/start|\/link)[=\s]*/i, '').trim();
+      token = cleaned.split(/\s+/)[0] || '';
     } else if (/^[a-zA-Z0-9_-]{4,32}$/.test(text)) {
       token = text;
+    } else {
+      const match = text.match(/\b\d{6}\b/);
+      if (match) {
+        token = match[0];
+      }
     }
 
     if (!token) {
@@ -100,7 +111,53 @@ export class TelegramBotListener {
     }
 
     dbService.deleteExpiredTelegramLinkTokens();
-    const linkRecord = dbService.findTelegramLinkToken(token) || dbService.findTelegramLinkToken('link_' + token);
+    let linkRecord = dbService.findTelegramLinkToken(token) || dbService.findTelegramLinkToken('link_' + token);
+    let updateUserChatId = (uid: string, cid: string) => dbService.updateUserTelegramChatId(uid, cid);
+    let findUser = (uid: string) => dbService.findUserById(uid);
+    let deleteToken = (tok: string) => dbService.deleteTelegramLinkToken(tok);
+
+    if (!linkRecord) {
+      const dataDir = process.env.DATA_DIR || path.join(__dirname, '../../../data');
+      const candidatePaths = [
+        path.join(dataDir, 'qa/shopee_monitor.db'),
+        path.join(dataDir, '../shopee_monitor.db'),
+        path.join(dataDir, 'shopee_monitor.db')
+      ];
+
+      for (const candPath of candidatePaths) {
+        if (fs.existsSync(candPath)) {
+          let extDb: any = null;
+          try {
+            extDb = new Database(candPath);
+            const row = extDb.prepare('SELECT * FROM telegram_link_tokens WHERE token = ? OR token = ?').get(token, 'link_' + token) as any;
+            if (row) {
+              linkRecord = row;
+              findUser = (uid: string) => {
+                const d = new Database(candPath);
+                try { return d.prepare('SELECT * FROM users WHERE id = ?').get(uid) as any; }
+                finally { d.close(); }
+              };
+              updateUserChatId = (uid: string, cid: string) => {
+                const d = new Database(candPath);
+                try { d.prepare('UPDATE users SET telegram_chat_id = ? WHERE id = ?').run(cid, uid); }
+                finally { d.close(); }
+              };
+              deleteToken = (tok: string) => {
+                const d = new Database(candPath);
+                try { d.prepare('DELETE FROM telegram_link_tokens WHERE token = ?').run(tok); }
+                finally { d.close(); }
+              };
+              break;
+            }
+          } catch {
+          } finally {
+            if (extDb) {
+              try { extDb.close(); } catch {}
+            }
+          }
+        }
+      }
+    }
 
     if (!linkRecord) {
       await TelegramService.sendMessage(
@@ -111,7 +168,7 @@ export class TelegramBotListener {
     }
 
     if (linkRecord.expires_at < Date.now()) {
-      dbService.deleteTelegramLinkToken(token);
+      deleteToken(token);
       await TelegramService.sendMessage(
         chatId,
         `⌛ <b>Pairing code expired.</b>\n\nPlease generate a new code from your dashboard.`
@@ -119,15 +176,15 @@ export class TelegramBotListener {
       return;
     }
 
-    const user = dbService.findUserById(linkRecord.user_id);
+    const user = findUser(linkRecord.user_id);
     if (!user) {
-      dbService.deleteTelegramLinkToken(token);
+      deleteToken(token);
       return;
     }
 
-    dbService.updateUserTelegramChatId(user.id, chatId);
-    dbService.deleteTelegramLinkToken(token);
-    dbService.deleteTelegramLinkToken(linkRecord.token);
+    updateUserChatId(user.id, chatId);
+    deleteToken(token);
+    deleteToken(linkRecord.token);
 
     await TelegramService.sendMessage(
       chatId,

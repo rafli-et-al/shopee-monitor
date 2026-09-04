@@ -15,5 +15,6 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - STOCK_CHECK_CRON=${STOCK_CHECK_CRON:-0 */6 * * *}
       - ALLOW_DEV_SETTINGS=${ALLOW_DEV_SETTINGS:-false}
+      - ENABLE_TELEGRAM_BOT_POLLING=true
     volumes:
       - ./data:/app/data

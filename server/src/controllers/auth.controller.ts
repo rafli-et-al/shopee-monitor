@@ -169,8 +169,9 @@ export class AuthController {
         success: true,
         code,
         url: `https://t.me/${botInfo.username}?start=${code}`,
-        webUrl: `https://web.telegram.org/a/#?tgaddr=tg%3A%2F%2Fresolve%3Fdomain%3D${botInfo.username}%26start%3D${code}`,
+        webAutoUrl: `https://web.telegram.org/?tgaddr=tg%3A%2F%2Fresolve%3Fdomain%3D${botInfo.username}%26start%3D${code}`,
         webKUrl: `https://web.telegram.org/k/#?tgaddr=tg%3A%2F%2Fresolve%3Fdomain%3D${botInfo.username}%26start%3D${code}`,
+        webAUrl: `https://web.telegram.org/a/#?tgaddr=tg%3A%2F%2Fresolve%3Fdomain%3D${botInfo.username}%26start%3D${code}`,
         botUsername: botInfo.username
       });
     } catch (err: any) {

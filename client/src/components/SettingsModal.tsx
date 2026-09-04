@@ -21,7 +21,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [showManualChatId, setShowManualChatId] = useState(false);
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [botUsername, setBotUsername] = useState<string>('');
-  const [telegramUrls, setTelegramUrls] = useState<{ url: string; webUrl: string; webKUrl?: string } | null>(null);
+  const [telegramUrls, setTelegramUrls] = useState<{
+    url: string;
+    webAutoUrl?: string;
+    webKUrl?: string;
+    webAUrl?: string;
+  } | null>(null);
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -49,6 +54,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
       headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
+  };
+
+  const handleCopyCode = async (text: string) => {
+    let copied = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch {}
+    }
+    if (!copied) {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch {}
+    }
+    if (copied) {
+      showToast('Pairing code copied to clipboard!', 'success');
+    } else {
+      showToast('Failed to copy. Please copy manually: ' + text, 'error');
+    }
   };
 
   const loadSettings = async () => {
@@ -84,10 +118,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
       setPairCode(json.code || null);
       setBotUsername(json.botUsername || '');
-      setTelegramUrls({ url: json.url, webUrl: json.webUrl, webKUrl: json.webKUrl });
+      setTelegramUrls({
+        url: json.url,
+        webAutoUrl: json.webAutoUrl,
+        webKUrl: json.webKUrl,
+        webAUrl: json.webAUrl
+      });
 
-      const targetUrl = json.webUrl || json.url;
-      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      const targetUrl = json.webAutoUrl || json.url;
+      if (targetUrl) {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
 
       stopPolling();
       pollIntervalRef.current = setInterval(async () => {
@@ -327,24 +368,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                           type="button"
                           className="btn btn-secondary"
                           style={{ flex: 1, minWidth: '100px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
-                          onClick={() => {
-                            navigator.clipboard.writeText(pairCode);
-                            showToast('Pairing code copied!', 'success');
-                          }}
+                          onClick={() => handleCopyCode(pairCode)}
                         >
                           <Copy size={13} />
                           Copy Code
                         </button>
-                        {telegramUrls?.webUrl && (
+                        {telegramUrls?.webAutoUrl && (
                           <a
-                            href={telegramUrls.webUrl}
+                            href={telegramUrls.webAutoUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-secondary"
                             style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
                           >
                             <ExternalLink size={13} />
-                            Web (A)
+                            Web (Auto)
                           </a>
                         )}
                         {telegramUrls?.webKUrl && (
@@ -357,6 +395,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                           >
                             <ExternalLink size={13} />
                             Web (K)
+                          </a>
+                        )}
+                        {telegramUrls?.webAUrl && (
+                          <a
+                            href={telegramUrls.webAUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                          >
+                            <ExternalLink size={13} />
+                            Web (A)
                           </a>
                         )}
                         {telegramUrls?.url && (
@@ -373,7 +423,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                         )}
                       </div>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        If START in Telegram Web is unresponsive, simply type <b>{pairCode}</b> in the chat and press Enter.
+                        Already have Telegram open in another tab? Simply copy the code and send it to <b>@{botUsername}</b>.
                       </span>
                     </div>
                   )}
