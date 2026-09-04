@@ -84,7 +84,7 @@ export const App: React.FC = () => {
       });
       const json = await res.json();
       if (json.success && json.data) {
-        setTelegramConfigured(!!(json.data.telegram_bot_token && json.data.telegram_chat_id));
+        setTelegramConfigured(!!(json.data.bot_configured && json.data.telegram_chat_id));
       }
     } catch {}
   }, []);
@@ -178,6 +178,7 @@ export const App: React.FC = () => {
           setSeenAlertId((prev) => prev);
         }}
         unreadAlertCount={alertCount}
+        telegramConfigured={telegramConfigured}
         user={user}
         onLogout={handleLogout}
       />

@@ -9,6 +9,9 @@ router.post('/auth/register', AuthController.register);
 router.post('/auth/login', AuthController.login);
 router.get('/auth/me', requireAuth, AuthController.getMe);
 router.patch('/auth/telegram', requireAuth, AuthController.updateTelegram);
+router.get('/telegram/connect-link', requireAuth, AuthController.getTelegramConnectLink);
+router.get('/telegram/status', requireAuth, AuthController.getTelegramStatus);
+router.post('/telegram/disconnect', requireAuth, AuthController.disconnectTelegram);
 
 router.post('/items/preview', requireAuth, ItemController.previewItem);
 router.post('/items', requireAuth, ItemController.createItem);

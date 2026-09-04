@@ -12,6 +12,46 @@ export class TelegramService {
     return { botToken, chatId };
   }
 
+  static getBotToken(): string {
+    return this.getCredentials().botToken;
+  }
+
+  static async getBotInfo(): Promise<{ username: string; firstName: string } | null> {
+    const token = this.getBotToken();
+    if (!token) return null;
+    try {
+      const res = await axios.get(`https://api.telegram.org/bot${token}/getMe`, { timeout: 8000 });
+      if (res.data && res.data.ok && res.data.result) {
+        return {
+          username: res.data.result.username,
+          firstName: res.data.result.first_name
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  static async sendMessage(chatId: string, text: string, parseMode: string = 'HTML'): Promise<boolean> {
+    const token = this.getBotToken();
+    if (!token || !chatId) return false;
+    try {
+      const res = await axios.post(
+        `https://api.telegram.org/bot${token}/sendMessage`,
+        {
+          chat_id: chatId,
+          text,
+          parse_mode: parseMode
+        },
+        { timeout: 8000 }
+      );
+      return !!(res.data && res.data.ok);
+    } catch {
+      return false;
+    }
+  }
+
   static async testConnection(botToken?: string, chatId?: string): Promise<{ success: boolean; message: string }> {
     const creds = this.getCredentials();
     const token = (botToken || creds.botToken).trim();

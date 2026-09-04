@@ -7,6 +7,7 @@ interface HeaderProps {
   onOpenSettingsModal: () => void;
   onOpenAlertsModal: () => void;
   unreadAlertCount: number;
+  telegramConfigured?: boolean;
   user?: User | null;
   onLogout?: () => void;
 }
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettingsModal,
   onOpenAlertsModal,
   unreadAlertCount,
+  telegramConfigured,
   user,
   onLogout
 }) => {
@@ -59,9 +61,21 @@ export const Header: React.FC<HeaderProps> = ({
             {unreadAlertCount > 0 && <span className="badge badge-in-stock">{unreadAlertCount}</span>}
           </button>
 
-          <button className="btn btn-secondary" onClick={onOpenSettingsModal}>
+          <button className="btn btn-secondary" onClick={onOpenSettingsModal} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             <SettingsIcon size={16} />
-            Telegram & Settings
+            Telegram
+            {telegramConfigured && (
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: 'var(--success-text)',
+                  display: 'inline-block'
+                }}
+                title="Telegram alerts active"
+              />
+            )}
           </button>
 
           <button className="btn btn-primary" onClick={onOpenAddModal}>

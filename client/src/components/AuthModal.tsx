@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, User, Lock, Send, Loader2, LogIn, UserPlus } from 'lucide-react';
+import { ShieldCheck, User, Lock, Loader2, LogIn, UserPlus } from 'lucide-react';
 import { User as UserType } from '../types';
 
 interface AuthModalProps {
@@ -12,7 +12,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [telegramChatId, setTelegramChatId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -38,9 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
     setLoading(true);
     try {
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-      const body = isRegister
-        ? { username: cleanUsername, password, telegram_chat_id: telegramChatId.trim() || undefined }
-        : { username: cleanUsername, password };
+      const body = { username: cleanUsername, password };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -172,26 +169,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
                 </span>
               )}
             </div>
-
-            {isRegister && (
-              <div className="form-group">
-                <label className="form-label">Telegram Chat ID (Optional)</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    style={{ width: '100%', paddingLeft: '2.25rem' }}
-                    placeholder="e.g. 1883216058"
-                    value={telegramChatId}
-                    onChange={(e) => setTelegramChatId(e.target.value)}
-                  />
-                  <Send size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)' }} />
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  Get from @userinfobot on Telegram. You can also configure this later.
-                </span>
-              </div>
-            )}
           </div>
 
           <div className="modal-footer" style={{ marginTop: '0.5rem' }}>

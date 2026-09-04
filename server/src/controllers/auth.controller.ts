@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { dbService } from '../db';
 import { JWT_SECRET, AuthRequest } from '../middleware/auth.middleware';
+import { TelegramService } from '../services/telegram.service';
 
 export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
@@ -145,6 +146,62 @@ export class AuthController {
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to update Telegram Chat ID.' });
+    }
+  }
+
+  static async getTelegramConnectLink(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const botInfo = await TelegramService.getBotInfo();
+      if (!botInfo || !botInfo.username) {
+        res.status(400).json({
+          error: 'Telegram bot is not configured on this server or the bot token is invalid.',
+          code: 'BOT_NOT_CONFIGURED'
+        });
+        return;
+      }
+
+      dbService.deleteExpiredTelegramLinkTokens();
+      const token = 'link_' + crypto.randomBytes(8).toString('hex');
+      const expiresAt = Date.now() + 15 * 60 * 1000;
+      dbService.createTelegramLinkToken(token, req.user!.id, expiresAt);
+
+      res.json({
+        success: true,
+        url: `https://t.me/${botInfo.username}?start=${token}`,
+        botUsername: botInfo.username
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to generate Telegram link.' });
+    }
+  }
+
+  static async getTelegramStatus(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const user = dbService.findUserById(req.user!.id);
+      if (!user) {
+        res.status(404).json({ error: 'User not found.' });
+        return;
+      }
+
+      res.json({
+        success: true,
+        connected: !!user.telegram_chat_id,
+        chatId: user.telegram_chat_id || null
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to get Telegram status.' });
+    }
+  }
+
+  static async disconnectTelegram(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      dbService.updateUserTelegramChatId(req.user!.id, null);
+      res.json({
+        success: true,
+        message: 'Telegram disconnected successfully.'
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to disconnect Telegram.' });
     }
   }
 }

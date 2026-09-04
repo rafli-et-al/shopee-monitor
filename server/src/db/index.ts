@@ -73,6 +73,13 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 export interface UserRecord {
@@ -297,6 +304,27 @@ export const dbService = {
       result[row.key] = row.value;
     }
     return result;
+  },
+
+  createTelegramLinkToken(token: string, userId: string, expiresAt: number) {
+    db.prepare(`
+      INSERT INTO telegram_link_tokens (token, user_id, expires_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(token) DO UPDATE SET user_id = excluded.user_id, expires_at = excluded.expires_at
+    `).run(token, userId, expiresAt);
+  },
+
+  findTelegramLinkToken(token: string): { token: string; user_id: string; expires_at: number } | undefined {
+    return db.prepare('SELECT * FROM telegram_link_tokens WHERE token = ?').get(token) as { token: string; user_id: string; expires_at: number } | undefined;
+  },
+
+  deleteTelegramLinkToken(token: string) {
+    db.prepare('DELETE FROM telegram_link_tokens WHERE token = ?').run(token);
+  },
+
+  deleteExpiredTelegramLinkTokens() {
+    const now = Date.now();
+    db.prepare('DELETE FROM telegram_link_tokens WHERE expires_at < ?').run(now);
   }
 };
 

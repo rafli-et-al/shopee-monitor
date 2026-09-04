@@ -3,8 +3,16 @@ import { dbService } from '../db';
 import { ScraperService } from '../services/scraper.service';
 import { TelegramService } from '../services/telegram.service';
 import { SchedulerService } from '../services/scheduler.service';
+import { TelegramBotListener } from '../services/telegram-bot.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import crypto from 'crypto';
+
+const isDevSettingsAllowed = (): boolean => {
+  if (process.env.ALLOW_DEV_SETTINGS !== undefined) {
+    return process.env.ALLOW_DEV_SETTINGS === 'true';
+  }
+  return process.env.NODE_ENV !== 'production';
+};
 
 export class ItemController {
   static async previewItem(req: Request, res: Response): Promise<void> {
@@ -152,6 +160,7 @@ export class ItemController {
 
   static async getSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
+      const allowDevSettings = isDevSettingsAllowed();
       const settings = dbService.getAllSettings();
       const botToken = settings.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN || '';
       const checkCron = settings.check_cron || process.env.STOCK_CHECK_CRON || '0 * * * *';
@@ -160,7 +169,9 @@ export class ItemController {
       res.json({
         success: true,
         data: {
-          telegram_bot_token: botToken,
+          allow_dev_settings: allowDevSettings,
+          bot_configured: !!botToken,
+          telegram_bot_token: allowDevSettings ? botToken : '',
           telegram_chat_id: user?.telegram_chat_id || '',
           check_cron: checkCron
         }
@@ -172,19 +183,32 @@ export class ItemController {
 
   static async updateSettings(req: AuthRequest, res: Response): Promise<void> {
     try {
+      const allowDevSettings = isDevSettingsAllowed();
       const { telegram_bot_token, telegram_chat_id, check_cron } = req.body;
 
-      if (telegram_bot_token !== undefined) {
-        dbService.setSetting('telegram_bot_token', String(telegram_bot_token).trim());
-      }
       if (telegram_chat_id !== undefined && req.user) {
         dbService.updateUserTelegramChatId(req.user.id, telegram_chat_id ? String(telegram_chat_id).trim() : null);
       }
-      if (check_cron !== undefined) {
-        dbService.setSetting('check_cron', String(check_cron).trim());
-      }
 
-      SchedulerService.restart();
+      if (allowDevSettings) {
+        let botTokenChanged = false;
+        if (telegram_bot_token !== undefined) {
+          const currentToken = dbService.getSetting('telegram_bot_token') || '';
+          const newToken = String(telegram_bot_token).trim();
+          if (currentToken !== newToken) {
+            dbService.setSetting('telegram_bot_token', newToken);
+            botTokenChanged = true;
+          }
+        }
+        if (check_cron !== undefined) {
+          dbService.setSetting('check_cron', String(check_cron).trim());
+        }
+
+        SchedulerService.restart();
+        if (botTokenChanged) {
+          TelegramBotListener.restart();
+        }
+      }
 
       res.json({ success: true, message: 'Settings updated successfully.' });
     } catch (error: any) {

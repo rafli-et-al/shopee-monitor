@@ -48,6 +48,8 @@ export interface AlertLog {
 }
 
 export interface AppSettings {
+  allow_dev_settings?: boolean;
+  bot_configured?: boolean;
   telegram_bot_token: string;
   telegram_chat_id: string;
   check_cron: string;

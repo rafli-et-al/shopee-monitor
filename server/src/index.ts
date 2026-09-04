@@ -40,6 +40,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 import { dbService } from './db';
+import { TelegramBotListener } from './services/telegram-bot.service';
 
 if (process.env.TELEGRAM_BOT_TOKEN && !dbService.getSetting('telegram_bot_token')) {
   dbService.setSetting('telegram_bot_token', process.env.TELEGRAM_BOT_TOKEN.trim());
@@ -49,6 +50,7 @@ if (process.env.TELEGRAM_CHAT_ID && !dbService.getSetting('telegram_chat_id')) {
 }
 
 SchedulerService.init();
+TelegramBotListener.start();
 
 app.listen(PORT, () => {
   console.log(`Shopee Monitor Server running on http://localhost:${PORT}`);
