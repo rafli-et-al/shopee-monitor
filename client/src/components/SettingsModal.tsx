@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Save, CheckCircle2, AlertCircle, Loader2, ChevronDown, ExternalLink } from 'lucide-react';
+import { X, Send, Save, CheckCircle2, AlertCircle, Loader2, ChevronDown, ExternalLink, Copy } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -19,6 +19,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [linking, setLinking] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [showManualChatId, setShowManualChatId] = useState(false);
+  const [pairCode, setPairCode] = useState<string | null>(null);
+  const [botUsername, setBotUsername] = useState<string>('');
+  const [telegramUrls, setTelegramUrls] = useState<{ url: string; webUrl: string } | null>(null);
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -78,6 +81,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
       if (!res.ok) {
         throw new Error(json.error || 'Failed to generate Telegram link');
       }
+
+      setPairCode(json.code || null);
+      setBotUsername(json.botUsername || '');
+      setTelegramUrls({ url: json.url, webUrl: json.webUrl });
 
       window.open(json.url, '_blank', 'noopener,noreferrer');
 
@@ -285,10 +292,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     )}
                   </button>
 
-                  {linking && (
+                  {linking && !pairCode && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', textAlign: 'center' }}>
-                      Telegram opened! Tap <b>START</b> in your Telegram app to complete connection.
+                      Opening Telegram...
                     </span>
+                  )}
+
+                  {pairCode && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      background: 'var(--bg-primary)',
+                      padding: '0.85rem',
+                      borderRadius: '8px',
+                      border: '1px dashed var(--border-subtle)',
+                      gap: '0.5rem'
+                    }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Send this 6-digit code to <b>@{botUsername}</b>:
+                      </div>
+                      <div style={{
+                        fontSize: '1.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.35rem',
+                        color: 'var(--accent-primary)',
+                        fontFamily: 'monospace'
+                      }}>
+                        {pairCode}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ flex: 1, fontSize: '0.75rem', padding: '0.35rem 0.65rem', justifyContent: 'center' }}
+                          onClick={() => {
+                            navigator.clipboard.writeText(pairCode);
+                            showToast('Pairing code copied!', 'success');
+                          }}
+                        >
+                          <Copy size={13} />
+                          Copy Code
+                        </button>
+                        {telegramUrls?.webUrl && (
+                          <a
+                            href={telegramUrls.webUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ flex: 1, fontSize: '0.75rem', padding: '0.35rem 0.65rem', justifyContent: 'center' }}
+                          >
+                            <ExternalLink size={13} />
+                            Open Web
+                          </a>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        If START in Telegram Web is unresponsive, simply type <b>{pairCode}</b> in the chat and press Enter.
+                      </span>
+                    </div>
                   )}
                 </div>
               )}

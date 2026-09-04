@@ -161,13 +161,15 @@ export class AuthController {
       }
 
       dbService.deleteExpiredTelegramLinkTokens();
-      const token = 'link_' + crypto.randomBytes(8).toString('hex');
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = Date.now() + 15 * 60 * 1000;
-      dbService.createTelegramLinkToken(token, req.user!.id, expiresAt);
+      dbService.createTelegramLinkToken(code, req.user!.id, expiresAt);
 
       res.json({
         success: true,
-        url: `https://t.me/${botInfo.username}?start=${token}`,
+        code,
+        url: `https://t.me/${botInfo.username}?start=${code}`,
+        webUrl: `https://web.telegram.org/a/#?tgaddr=tg%3A%2F%2Fresolve%3Fdomain%3D${botInfo.username}%26start%3D${code}`,
         botUsername: botInfo.username
       });
     } catch (err: any) {

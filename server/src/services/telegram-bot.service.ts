@@ -81,51 +81,57 @@ export class TelegramBotListener {
     const text = message.text.trim();
     const chatId = String(message.chat.id);
 
-    if (text.startsWith('/start')) {
+    let token = '';
+    if (text.startsWith('/start') || text.startsWith('/link')) {
       const parts = text.split(/\s+/);
-      const token = parts[1];
+      token = parts[1] || '';
+    } else if (/^[a-zA-Z0-9_-]{4,32}$/.test(text)) {
+      token = text;
+    }
 
-      if (!token) {
+    if (!token) {
+      if (text.startsWith('/start')) {
         await TelegramService.sendMessage(
           chatId,
-          `👋 <b>Shopee Monitor Bot</b>\n\nTo link your account, please click the <b>Connect Telegram</b> button on your Shopee Monitor dashboard.`
+          `👋 <b>Shopee Monitor Bot</b>\n\nTo link your Telegram chat to Shopee Monitor, please send your 6-digit code from your dashboard settings (e.g. <code>123456</code>).`
         );
-        return;
       }
+      return;
+    }
 
-      dbService.deleteExpiredTelegramLinkTokens();
-      const linkRecord = dbService.findTelegramLinkToken(token);
+    dbService.deleteExpiredTelegramLinkTokens();
+    const linkRecord = dbService.findTelegramLinkToken(token) || dbService.findTelegramLinkToken('link_' + token);
 
-      if (!linkRecord) {
-        await TelegramService.sendMessage(
-          chatId,
-          `⚠️ <b>Invalid or expired link.</b>\n\nPlease generate a new connection link from your Shopee Monitor dashboard.`
-        );
-        return;
-      }
-
-      if (linkRecord.expires_at < Date.now()) {
-        dbService.deleteTelegramLinkToken(token);
-        await TelegramService.sendMessage(
-          chatId,
-          `⌛ <b>Connection link expired.</b>\n\nPlease generate a new connection link from your Shopee Monitor dashboard.`
-        );
-        return;
-      }
-
-      const user = dbService.findUserById(linkRecord.user_id);
-      if (!user) {
-        dbService.deleteTelegramLinkToken(token);
-        return;
-      }
-
-      dbService.updateUserTelegramChatId(user.id, chatId);
-      dbService.deleteTelegramLinkToken(token);
-
+    if (!linkRecord) {
       await TelegramService.sendMessage(
         chatId,
-        `🎉 <b>Shopee Monitor Connected!</b>\n\nYour Telegram chat has been successfully linked to account <b>@${user.username}</b>.\nYou will now receive instant stock replenishment alerts here.`
+        `⚠️ <b>Code not found or expired.</b>\n\nPlease check the pairing code on your dashboard and try again.`
       );
+      return;
     }
+
+    if (linkRecord.expires_at < Date.now()) {
+      dbService.deleteTelegramLinkToken(token);
+      await TelegramService.sendMessage(
+        chatId,
+        `⌛ <b>Pairing code expired.</b>\n\nPlease generate a new code from your dashboard.`
+      );
+      return;
+    }
+
+    const user = dbService.findUserById(linkRecord.user_id);
+    if (!user) {
+      dbService.deleteTelegramLinkToken(token);
+      return;
+    }
+
+    dbService.updateUserTelegramChatId(user.id, chatId);
+    dbService.deleteTelegramLinkToken(token);
+    dbService.deleteTelegramLinkToken(linkRecord.token);
+
+    await TelegramService.sendMessage(
+      chatId,
+      `🎉 <b>Shopee Monitor Connected!</b>\n\nYour Telegram chat has been successfully linked to account <b>@${user.username}</b>.\nYou will now receive instant stock replenishment alerts here.`
+    );
   }
 }
