@@ -12,7 +12,7 @@ export class TelegramBotListener {
   private static pollTimer: NodeJS.Timeout | null = null;
 
   static start(): void {
-    if (process.env.ENABLE_TELEGRAM_BOT_POLLING === 'false') {
+    if (process.env.ENABLE_TELEGRAM_BOT_POLLING === 'false' || (process.env.NODE_ENV === 'development' && process.env.ENABLE_TELEGRAM_BOT_POLLING !== 'true')) {
       return;
     }
     if (this.isRunning) return;
@@ -117,11 +117,15 @@ export class TelegramBotListener {
     let deleteToken = (tok: string) => dbService.deleteTelegramLinkToken(tok);
 
     if (!linkRecord) {
-      const dataDir = process.env.DATA_DIR || path.join(__dirname, '../../../data');
+      const dataDir = process.env.DATA_DIR || (fs.existsSync('/app/data') ? '/app/data' : path.join(__dirname, '../../../data'));
       const candidatePaths = [
         path.join(dataDir, 'qa/shopee_monitor.db'),
         path.join(dataDir, '../shopee_monitor.db'),
-        path.join(dataDir, 'shopee_monitor.db')
+        path.join(dataDir, 'shopee_monitor.db'),
+        '/app/data/qa/shopee_monitor.db',
+        '/app/data/shopee_monitor.db',
+        '/data/qa/shopee_monitor.db',
+        '/data/shopee_monitor.db'
       ];
 
       for (const candPath of candidatePaths) {

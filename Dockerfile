@@ -15,6 +15,7 @@ RUN npm run build
 FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV DATA_DIR=/app/data
 
 COPY server/package*.json ./
 RUN npm install --omit=dev

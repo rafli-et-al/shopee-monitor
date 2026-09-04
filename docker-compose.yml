@@ -11,6 +11,7 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
+      - DATA_DIR=/app/data
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - STOCK_CHECK_CRON=${STOCK_CHECK_CRON:-0 */6 * * *}

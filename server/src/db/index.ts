@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const dataDir = process.env.DATA_DIR || path.join(__dirname, '../../../data');
+const dataDir = process.env.DATA_DIR || (fs.existsSync('/app/data') ? '/app/data' : path.join(__dirname, '../../../data'));
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -11,6 +11,7 @@ const dbPath = process.env.DB_PATH || path.join(dataDir, 'shopee_monitor.db');
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
+
 
 const itemColumns = db.prepare("PRAGMA table_info(items)").all() as { name: string }[];
 const hasUserId = itemColumns.some((c) => c.name === 'user_id');
@@ -81,6 +82,34 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
+
+const qaDbCandidate = path.join(dataDir, 'qa/shopee_monitor.db');
+if (fs.existsSync(qaDbCandidate)) {
+  try {
+    const qaDb = new Database(qaDbCandidate);
+    try {
+      const qaUsers = qaDb.prepare('SELECT * FROM users').all() as any[];
+      const insertUser = db.prepare(`
+        INSERT OR IGNORE INTO users (id, username, password_hash, telegram_chat_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      for (const u of qaUsers) {
+        insertUser.run(u.id, u.username, u.password_hash, u.telegram_chat_id, u.created_at);
+      }
+      const qaTokens = qaDb.prepare('SELECT * FROM telegram_link_tokens').all() as any[];
+      const insertToken = db.prepare(`
+        INSERT OR REPLACE INTO telegram_link_tokens (token, user_id, expires_at)
+        VALUES (?, ?, ?)
+      `);
+      for (const t of qaTokens) {
+        insertToken.run(t.token, t.user_id, t.expires_at);
+      }
+    } finally {
+      qaDb.close();
+    }
+  } catch {}
+}
+
 
 export interface UserRecord {
   id: string;

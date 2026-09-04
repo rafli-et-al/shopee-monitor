@@ -87,7 +87,7 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             cd ${{ secrets.VPS_APP_DIR || '~/shopee-monitor' }}
-            git pull || true
+            git fetch origin && git reset --hard origin/main || git pull || true
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
             sudo docker compose -p ${{ steps.env-vars.outputs.PROJECT_NAME }} -f ${{ steps.env-vars.outputs.COMPOSE_FILE }} pull || true
             sudo docker rm -f ${{ steps.env-vars.outputs.CONTAINER_NAME }} || true

@@ -125,11 +125,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
         webAUrl: json.webAUrl
       });
 
-      const targetUrl = json.webAutoUrl || json.url;
-      if (targetUrl) {
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
-      }
-
       stopPolling();
       pollIntervalRef.current = setInterval(async () => {
         try {
@@ -305,39 +300,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   borderRadius: '8px'
                 }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Instant 1-Click Connection</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Telegram Connection</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                      Click below to open Telegram Web directly, then press <b>START</b>. Your account will link automatically.
+                      Get a 6-digit pairing code to link your Telegram account for instant restock alerts.
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: '100%', justifyContent: 'center', gap: '0.5rem' }}
-                    onClick={handleConnectTelegram}
-                    disabled={linking || (!botConfigured && !allowDevSettings)}
-                  >
-                    {linking ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Waiting for Telegram START...
-                      </>
-                    ) : !botConfigured && !allowDevSettings ? (
-                      'Bot Not Configured by Admin'
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        Connect with Telegram Web
-                        <ExternalLink size={14} style={{ opacity: 0.7 }} />
-                      </>
-                    )}
-                  </button>
-
-                  {linking && !pairCode && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', textAlign: 'center' }}>
-                      Opening Telegram Web...
-                    </span>
+                  {!pairCode && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ width: '100%', justifyContent: 'center', gap: '0.5rem' }}
+                      onClick={handleConnectTelegram}
+                      disabled={linking || (!botConfigured && !allowDevSettings)}
+                    >
+                      {linking ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Generating Pairing Code...
+                        </>
+                      ) : !botConfigured && !allowDevSettings ? (
+                        'Bot Not Configured by Admin'
+                      ) : (
+                        <>
+                          <Send size={16} />
+                          Get Telegram Pairing Code
+                        </>
+                      )}
+                    </button>
                   )}
 
                   {pairCode && (
@@ -346,52 +336,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       flexDirection: 'column',
                       alignItems: 'center',
                       background: 'var(--bg-primary)',
-                      padding: '0.85rem',
+                      padding: '1rem',
                       borderRadius: '8px',
                       border: '1px dashed var(--border-subtle)',
-                      gap: '0.5rem'
+                      gap: '0.65rem'
                     }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         Send this 6-digit code to <b>@{botUsername}</b>:
                       </div>
                       <div style={{
-                        fontSize: '1.75rem',
+                        fontSize: '2rem',
                         fontWeight: 700,
-                        letterSpacing: '0.35rem',
+                        letterSpacing: '0.4rem',
                         color: 'var(--accent-primary)',
-                        fontFamily: 'monospace'
+                        fontFamily: 'monospace',
+                        userSelect: 'all'
                       }}>
                         {pairCode}
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem', width: '100%', flexWrap: 'wrap' }}>
                         <button
                           type="button"
-                          className="btn btn-secondary"
-                          style={{ flex: 1, minWidth: '100px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                          className="btn btn-primary"
+                          style={{ flex: 1, minWidth: '110px', fontSize: '0.78rem', padding: '0.4rem 0.6rem', justifyContent: 'center' }}
                           onClick={() => handleCopyCode(pairCode)}
                         >
-                          <Copy size={13} />
+                          <Copy size={14} />
                           Copy Code
                         </button>
-                        {telegramUrls?.webAutoUrl && (
-                          <a
-                            href={telegramUrls.webAutoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-secondary"
-                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
-                          >
-                            <ExternalLink size={13} />
-                            Web (Auto)
-                          </a>
-                        )}
                         {telegramUrls?.webKUrl && (
                           <a
                             href={telegramUrls.webKUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-secondary"
-                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.4rem 0.5rem', justifyContent: 'center' }}
                           >
                             <ExternalLink size={13} />
                             Web (K)
@@ -403,7 +382,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-secondary"
-                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.4rem 0.5rem', justifyContent: 'center' }}
                           >
                             <ExternalLink size={13} />
                             Web (A)
@@ -415,12 +394,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-secondary"
-                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.4rem 0.5rem', justifyContent: 'center' }}
                           >
                             <ExternalLink size={13} />
                             Desktop
                           </a>
                         )}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontSize: '0.75rem',
+                        color: 'var(--accent-primary)'
+                      }}>
+                        <Loader2 size={13} className="animate-spin" />
+                        Listening for your code in Telegram...
                       </div>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                         Already have Telegram open in another tab? Simply copy the code and send it to <b>@{botUsername}</b>.
