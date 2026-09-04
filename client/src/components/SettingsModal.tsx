@@ -21,7 +21,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const [showManualChatId, setShowManualChatId] = useState(false);
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [botUsername, setBotUsername] = useState<string>('');
-  const [telegramUrls, setTelegramUrls] = useState<{ url: string; webUrl: string } | null>(null);
+  const [telegramUrls, setTelegramUrls] = useState<{ url: string; webUrl: string; webKUrl?: string } | null>(null);
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -84,9 +84,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
       setPairCode(json.code || null);
       setBotUsername(json.botUsername || '');
-      setTelegramUrls({ url: json.url, webUrl: json.webUrl });
+      setTelegramUrls({ url: json.url, webUrl: json.webUrl, webKUrl: json.webKUrl });
 
-      window.open(json.url, '_blank', 'noopener,noreferrer');
+      const targetUrl = json.webUrl || json.url;
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
 
       stopPolling();
       pollIntervalRef.current = setInterval(async () => {
@@ -265,7 +266,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Instant 1-Click Connection</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                      Click below to open Telegram, then press <b>START</b>. Your account will link automatically.
+                      Click below to open Telegram Web directly, then press <b>START</b>. Your account will link automatically.
                     </div>
                   </div>
 
@@ -286,7 +287,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     ) : (
                       <>
                         <Send size={16} />
-                        Connect with Telegram
+                        Connect with Telegram Web
                         <ExternalLink size={14} style={{ opacity: 0.7 }} />
                       </>
                     )}
@@ -294,7 +295,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
                   {linking && !pairCode && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', textAlign: 'center' }}>
-                      Opening Telegram...
+                      Opening Telegram Web...
                     </span>
                   )}
 
@@ -321,11 +322,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       }}>
                         {pairCode}
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', width: '100%', flexWrap: 'wrap' }}>
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          style={{ flex: 1, fontSize: '0.75rem', padding: '0.35rem 0.65rem', justifyContent: 'center' }}
+                          style={{ flex: 1, minWidth: '100px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
                           onClick={() => {
                             navigator.clipboard.writeText(pairCode);
                             showToast('Pairing code copied!', 'success');
@@ -340,10 +341,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-secondary"
-                            style={{ flex: 1, fontSize: '0.75rem', padding: '0.35rem 0.65rem', justifyContent: 'center' }}
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
                           >
                             <ExternalLink size={13} />
-                            Open Web
+                            Web (A)
+                          </a>
+                        )}
+                        {telegramUrls?.webKUrl && (
+                          <a
+                            href={telegramUrls.webKUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                          >
+                            <ExternalLink size={13} />
+                            Web (K)
+                          </a>
+                        )}
+                        {telegramUrls?.url && (
+                          <a
+                            href={telegramUrls.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ flex: 1, minWidth: '85px', fontSize: '0.75rem', padding: '0.35rem 0.5rem', justifyContent: 'center' }}
+                          >
+                            <ExternalLink size={13} />
+                            Desktop
                           </a>
                         )}
                       </div>
