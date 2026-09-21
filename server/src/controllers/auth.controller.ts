@@ -33,7 +33,7 @@ export class AuthController {
         return;
       }
 
-      const passwordHash = bcrypt.hashSync(password, 10);
+      const passwordHash = await bcrypt.hash(password, 10);
       const userId = crypto.randomUUID();
 
       const user = dbService.createUser({
@@ -83,7 +83,8 @@ export class AuthController {
         return;
       }
 
-      if (!bcrypt.compareSync(String(password), user.password_hash)) {
+      const isPasswordValid = await bcrypt.compare(String(password), user.password_hash);
+      if (!isPasswordValid) {
         res.status(401).json({
           error: 'Incorrect password. Please try again.',
           code: 'INVALID_PASSWORD'

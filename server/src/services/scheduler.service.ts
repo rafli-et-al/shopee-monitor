@@ -5,6 +5,7 @@ import { TelegramService } from './telegram.service';
 
 export class SchedulerService {
   private static task: cron.ScheduledTask | null = null;
+  private static isChecking = false;
 
   static init() {
     const interval = dbService.getSetting('check_cron') || process.env.STOCK_CHECK_CRON || '0 * * * *';
@@ -22,11 +23,15 @@ export class SchedulerService {
     console.log(`Scheduler initialized with cron: ${cronExpr}`);
   }
 
-  static restart() {
+  static stop() {
     if (this.task) {
       this.task.stop();
       this.task = null;
     }
+  }
+
+  static restart() {
+    this.stop();
     this.init();
   }
 
@@ -87,13 +92,23 @@ export class SchedulerService {
   }
 
   static async runCheck() {
-    const items = dbService.getAllActiveItems();
-    console.log(`Running scheduled check for ${items.length} item(s)...`);
+    if (this.isChecking) {
+      console.warn('Scheduled check already in progress. Skipping duplicate tick.');
+      return;
+    }
 
-    for (const item of items) {
-      const result = await this.checkItem(item.id);
-      console.log(`Checked "${item.name}": ${result.stockAlerts} stock alerts`);
-      await new Promise((r) => setTimeout(r, 3000 + Math.random() * 2000));
+    this.isChecking = true;
+    try {
+      const items = dbService.getAllActiveItems();
+      console.log(`Running scheduled check for ${items.length} item(s)...`);
+
+      for (const item of items) {
+        const result = await this.checkItem(item.id);
+        console.log(`Checked "${item.name}": ${result.stockAlerts} stock alerts`);
+        await new Promise((r) => setTimeout(r, 3000 + Math.random() * 2000));
+      }
+    } finally {
+      this.isChecking = false;
     }
   }
 }

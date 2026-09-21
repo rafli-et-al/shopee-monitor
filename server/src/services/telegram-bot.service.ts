@@ -1,7 +1,4 @@
 import axios from 'axios';
-import path from 'path';
-import fs from 'fs';
-import Database from 'better-sqlite3';
 import { dbService } from '../db';
 import { TelegramService } from './telegram.service';
 
@@ -111,57 +108,7 @@ export class TelegramBotListener {
     }
 
     dbService.deleteExpiredTelegramLinkTokens();
-    let linkRecord = dbService.findTelegramLinkToken(token) || dbService.findTelegramLinkToken('link_' + token);
-    let updateUserChatId = (uid: string, cid: string) => dbService.updateUserTelegramChatId(uid, cid);
-    let findUser = (uid: string) => dbService.findUserById(uid);
-    let deleteToken = (tok: string) => dbService.deleteTelegramLinkToken(tok);
-
-    if (!linkRecord) {
-      const dataDir = process.env.DATA_DIR || (fs.existsSync('/app/data') ? '/app/data' : path.join(__dirname, '../../../data'));
-      const candidatePaths = [
-        path.join(dataDir, 'qa/shopee_monitor.db'),
-        path.join(dataDir, '../shopee_monitor.db'),
-        path.join(dataDir, 'shopee_monitor.db'),
-        '/app/data/qa/shopee_monitor.db',
-        '/app/data/shopee_monitor.db',
-        '/data/qa/shopee_monitor.db',
-        '/data/shopee_monitor.db'
-      ];
-
-      for (const candPath of candidatePaths) {
-        if (fs.existsSync(candPath)) {
-          let extDb: any = null;
-          try {
-            extDb = new Database(candPath);
-            const row = extDb.prepare('SELECT * FROM telegram_link_tokens WHERE token = ? OR token = ?').get(token, 'link_' + token) as any;
-            if (row) {
-              linkRecord = row;
-              findUser = (uid: string) => {
-                const d = new Database(candPath);
-                try { return d.prepare('SELECT * FROM users WHERE id = ?').get(uid) as any; }
-                finally { d.close(); }
-              };
-              updateUserChatId = (uid: string, cid: string) => {
-                const d = new Database(candPath);
-                try { d.prepare('UPDATE users SET telegram_chat_id = ? WHERE id = ?').run(cid, uid); }
-                finally { d.close(); }
-              };
-              deleteToken = (tok: string) => {
-                const d = new Database(candPath);
-                try { d.prepare('DELETE FROM telegram_link_tokens WHERE token = ?').run(tok); }
-                finally { d.close(); }
-              };
-              break;
-            }
-          } catch {
-          } finally {
-            if (extDb) {
-              try { extDb.close(); } catch {}
-            }
-          }
-        }
-      }
-    }
+    const linkRecord = dbService.findTelegramLinkToken(token) || dbService.findTelegramLinkToken('link_' + token);
 
     if (!linkRecord) {
       await TelegramService.sendMessage(
@@ -172,7 +119,7 @@ export class TelegramBotListener {
     }
 
     if (linkRecord.expires_at < Date.now()) {
-      deleteToken(token);
+      dbService.deleteTelegramLinkToken(token);
       await TelegramService.sendMessage(
         chatId,
         `⌛ <b>Pairing code expired.</b>\n\nPlease generate a new code from your dashboard.`
@@ -180,15 +127,15 @@ export class TelegramBotListener {
       return;
     }
 
-    const user = findUser(linkRecord.user_id);
+    const user = dbService.findUserById(linkRecord.user_id);
     if (!user) {
-      deleteToken(token);
+      dbService.deleteTelegramLinkToken(token);
       return;
     }
 
-    updateUserChatId(user.id, chatId);
-    deleteToken(token);
-    deleteToken(linkRecord.token);
+    dbService.updateUserTelegramChatId(user.id, chatId);
+    dbService.deleteTelegramLinkToken(token);
+    dbService.deleteTelegramLinkToken(linkRecord.token);
 
     await TelegramService.sendMessage(
       chatId,

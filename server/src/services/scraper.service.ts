@@ -1,5 +1,19 @@
 import axios from 'axios';
 
+export class ScraperError extends Error {
+  constructor(message: string, public readonly shopId?: string, public readonly itemId?: string) {
+    super(message);
+    this.name = 'ScraperError';
+  }
+}
+
+export class ScraperBlockedError extends ScraperError {
+  constructor(message: string, shopId?: string, itemId?: string) {
+    super(message, shopId, itemId);
+    this.name = 'ScraperBlockedError';
+  }
+}
+
 export interface ScrapedVariant {
   model_id: string;
   name: string;
@@ -114,7 +128,9 @@ export class ScraperService {
             const modelId = String(m.model_id ?? m.modelid ?? m.id ?? m.name);
             const name = m.name || 'Default';
             const available = m.is_clickable !== false && m.is_grayout !== true && m.status !== 0;
-            const stock = available ? 1 : 0;
+            const rawStock = m.stock ?? m.normal_stock ?? m.current_stock;
+            const parsedStock = typeof rawStock === 'number' ? rawStock : parseInt(String(rawStock), 10);
+            const stock = available ? (!isNaN(parsedStock) && parsedStock > 0 ? parsedStock : 1) : 0;
 
             variants.push({ model_id: modelId, name, stock, available });
           }
@@ -150,18 +166,9 @@ export class ScraperService {
       }
     }
 
-    console.error(`[Scraper] All attempts failed for ${shopId}/${itemId}: ${lastError}`);
-    return this.fallback(shopId, itemId, canonicalUrl);
-  }
-
-  private static fallback(shopId: string, itemId: string, url: string): ScrapedItem {
-    return {
-      shop_id: shopId,
-      item_id: itemId,
-      name: `Shopee Product (${shopId}/${itemId})`,
-      image: null,
-      url,
-      variants: [{ model_id: 'default', name: 'Main Variant', stock: 0, available: false }]
-    };
+    if (lastError.includes('403') || lastError.includes('429') || lastError.includes('parse product page')) {
+      throw new ScraperBlockedError(`Shopee temporarily blocked the request or could not parse product data (${lastError})`, shopId, itemId);
+    }
+    throw new ScraperError(`Failed to fetch product details for ${shopId}/${itemId}: ${lastError}`, shopId, itemId);
   }
 }

@@ -32,19 +32,14 @@ export class ItemController {
       }
 
       const itemDetails = await ScraperService.fetchItemDetails(parsed.shopId, parsed.itemId, url);
-      if (!itemDetails.image && itemDetails.name.startsWith('Shopee Product (')) {
-        res.status(502).json({
-          error: 'Shopee temporarily blocked the request or the product could not be fetched. Please try clicking Fetch again.'
-        });
-        return;
-      }
 
       res.json({
         success: true,
         data: itemDetails
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Failed to preview item.' });
+      const statusCode = error.name === 'ScraperBlockedError' || error.name === 'ScraperError' ? 502 : 500;
+      res.status(statusCode).json({ error: error.message || 'Failed to preview item.' });
     }
   }
 

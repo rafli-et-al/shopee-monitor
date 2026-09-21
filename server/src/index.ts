@@ -4,7 +4,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import apiRoutes from './routes/api';
+import db, { dbService } from './db';
 import { SchedulerService } from './services/scheduler.service';
+import { TelegramBotListener } from './services/telegram-bot.service';
 
 dotenv.config();
 
@@ -39,9 +41,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: err.message || 'Internal server error.' });
 });
 
-import { dbService } from './db';
-import { TelegramBotListener } from './services/telegram-bot.service';
-
 if (process.env.TELEGRAM_BOT_TOKEN && !dbService.getSetting('telegram_bot_token')) {
   dbService.setSetting('telegram_bot_token', process.env.TELEGRAM_BOT_TOKEN.trim());
 }
@@ -52,6 +51,32 @@ if (process.env.TELEGRAM_CHAT_ID && !dbService.getSetting('telegram_chat_id')) {
 SchedulerService.init();
 TelegramBotListener.start();
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Shopee Monitor Server running on http://localhost:${PORT}`);
 });
+
+const gracefulShutdown = (signal: string) => {
+  console.log(`Received ${signal}. Shutting down gracefully...`);
+  SchedulerService.stop();
+  TelegramBotListener.stop();
+
+  server.close(() => {
+    try {
+      db.close();
+      console.log('Database connection closed.');
+    } catch (e) {
+      console.error('Error closing database:', e);
+    }
+    console.log('Process terminated cleanly.');
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error('Forced shutdown due to timeout.');
+    process.exit(1);
+  }, 10000).unref();
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+

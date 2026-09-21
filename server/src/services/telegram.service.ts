@@ -105,8 +105,8 @@ export class TelegramService {
     imageUrl?: string | null;
     chatId?: string | null;
   }): Promise<boolean> {
-    const { botToken, chatId: defaultChatId } = this.getCredentials();
-    const targetChat = (params.chatId || defaultChatId || '').trim();
+    const { botToken } = this.getCredentials();
+    const targetChat = (params.chatId || '').trim();
     if (!botToken || !targetChat) return false;
 
     const caption = `🚨 <b>ITEM BACK IN STOCK!</b>\n\n` +

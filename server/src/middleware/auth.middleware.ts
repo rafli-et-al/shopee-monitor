@@ -2,7 +2,18 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { dbService } from '../db';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'shopee-monitor-jwt-secret-key-2026';
+const resolveJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: JWT_SECRET environment variable is required in production mode.');
+    }
+    return 'shopee-monitor-jwt-dev-secret';
+  }
+  return secret;
+};
+
+export const JWT_SECRET = resolveJwtSecret();
 
 export interface AuthenticatedUser {
   id: string;

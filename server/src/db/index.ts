@@ -11,17 +11,7 @@ const dbPath = process.env.DB_PATH || path.join(dataDir, 'shopee_monitor.db');
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
-
-
-const itemColumns = db.prepare("PRAGMA table_info(items)").all() as { name: string }[];
-const hasUserId = itemColumns.some((c) => c.name === 'user_id');
-if (itemColumns.length > 0 && !hasUserId) {
-  db.exec(`
-    DROP TABLE IF EXISTS variants;
-    DROP TABLE IF EXISTS alerts;
-    DROP TABLE IF EXISTS items;
-  `);
-}
+db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -81,34 +71,13 @@ db.exec(`
     expires_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
-`);
 
-const qaDbCandidate = path.join(dataDir, 'qa/shopee_monitor.db');
-if (fs.existsSync(qaDbCandidate)) {
-  try {
-    const qaDb = new Database(qaDbCandidate);
-    try {
-      const qaUsers = qaDb.prepare('SELECT * FROM users').all() as any[];
-      const insertUser = db.prepare(`
-        INSERT OR IGNORE INTO users (id, username, password_hash, telegram_chat_id, created_at)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-      for (const u of qaUsers) {
-        insertUser.run(u.id, u.username, u.password_hash, u.telegram_chat_id, u.created_at);
-      }
-      const qaTokens = qaDb.prepare('SELECT * FROM telegram_link_tokens').all() as any[];
-      const insertToken = db.prepare(`
-        INSERT OR REPLACE INTO telegram_link_tokens (token, user_id, expires_at)
-        VALUES (?, ?, ?)
-      `);
-      for (const t of qaTokens) {
-        insertToken.run(t.token, t.user_id, t.expires_at);
-      }
-    } finally {
-      qaDb.close();
-    }
-  } catch {}
-}
+  CREATE INDEX IF NOT EXISTS idx_items_user_id ON items(user_id);
+  CREATE INDEX IF NOT EXISTS idx_items_is_active ON items(is_active);
+  CREATE INDEX IF NOT EXISTS idx_variants_item_id ON variants(item_id);
+  CREATE INDEX IF NOT EXISTS idx_alerts_user_id_sent ON alerts(user_id, sent_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_tokens_expires_at ON telegram_link_tokens(expires_at);
+`);
 
 
 export interface UserRecord {
@@ -294,11 +263,7 @@ export const dbService = {
   },
 
   deleteItemForUser(id: string, userId: string) {
-    const transaction = db.transaction(() => {
-      db.prepare('DELETE FROM variants WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items WHERE id = ? AND user_id = ?').run(id, userId);
-    });
-    transaction();
+    db.prepare('DELETE FROM items WHERE id = ? AND user_id = ?').run(id, userId);
   },
 
   logAlert(alert: { userId?: string | null; itemId?: string; itemName?: string; variantName?: string; alertType: string; message: string }) {
