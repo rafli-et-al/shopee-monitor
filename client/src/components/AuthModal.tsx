@@ -78,35 +78,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, showToa
           </p>
         </div>
 
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', margin: '1rem 0 0 0' }}>
-          <button
-            type="button"
-            className={`tab-btn ${!isRegister ? 'active' : ''}`}
-            style={{ flex: 1, textAlign: 'center', borderRadius: 0, padding: '0.75rem' }}
-            onClick={() => { setIsRegister(false); setError(null); setErrorCode(null); }}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`tab-btn ${isRegister ? 'active' : ''}`}
-            style={{ flex: 1, textAlign: 'center', borderRadius: 0, padding: '0.75rem' }}
-            onClick={() => { setIsRegister(true); setError(null); setErrorCode(null); }}
-          >
-            New Account
-          </button>
+        <div style={{ padding: '0.75rem 1.25rem 0' }}>
+          <div className="segmented-control" style={{ width: '100%', display: 'flex' }}>
+            <button
+              type="button"
+              className={`segmented-btn ${!isRegister ? 'active' : ''}`}
+              style={{ flex: 1, justifyContent: 'center', padding: '0.45rem' }}
+              onClick={() => { setIsRegister(false); setError(null); setErrorCode(null); }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`segmented-btn ${isRegister ? 'active' : ''}`}
+              style={{ flex: 1, justifyContent: 'center', padding: '0.45rem' }}
+              onClick={() => { setIsRegister(true); setError(null); setErrorCode(null); }}
+            >
+              New Account
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '1.25rem' }}>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingTop: '1rem' }}>
             {error && (
               <div style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid var(--danger-border)',
-                color: 'var(--danger-text)',
+                background: 'var(--status-out-stock-bg)',
+                border: '1px solid var(--status-out-stock-border)',
+                color: 'var(--status-out-stock)',
                 padding: '0.65rem 0.85rem',
-                borderRadius: '8px',
-                fontSize: '0.85rem'
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.825rem'
               }}>
                 <div>{error}</div>
                 {errorCode === 'USER_NOT_FOUND' && !isRegister && (

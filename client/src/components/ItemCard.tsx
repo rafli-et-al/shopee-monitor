@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, RefreshCw, Trash2, Play, Pause } from 'lucide-react';
+import { ArrowUpRight, RefreshCw, Trash2, Play, Pause } from 'lucide-react';
 import { Item } from '../types';
 
 interface ItemCardProps {
@@ -86,7 +86,12 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
   };
 
   return (
-    <div className="item-card">
+    <div
+      className="item-card"
+      style={{
+        opacity: item.is_active ? 1 : 0.65
+      }}
+    >
       <div className="item-card-header">
         {item.image ? (
           <img src={item.image} alt={item.name} className="item-thumb" />
@@ -103,7 +108,8 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
             rel="noopener noreferrer"
             className="item-link"
           >
-            Open in Shopee <ExternalLink size={12} />
+            <span>shopee.co.id</span>
+            <ArrowUpRight size={12} />
           </a>
         </div>
       </div>
@@ -116,9 +122,15 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
               <span className="variant-name" title={v.name}>
                 {v.name}
               </span>
-              <div className="variant-meta">
-                <span className={`badge ${isOut ? 'badge-out-stock' : 'badge-in-stock'}`}>
-                  {isOut ? 'Out of Stock' : 'In Stock'}
+              <div className="status-dot-indicator">
+                <span className={`status-dot ${isOut ? 'status-dot-out-stock' : 'status-dot-in-stock'}`} />
+                <span
+                  style={{
+                    color: isOut ? 'var(--status-out-stock)' : 'var(--status-in-stock)',
+                    fontWeight: 500
+                  }}
+                >
+                  {isOut ? 'Out of stock' : v.stock > 1 ? `In stock (${v.stock})` : 'In stock'}
                 </span>
               </div>
             </div>
@@ -127,7 +139,23 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
       </div>
 
       <div className="item-card-footer">
-        <span>Checked: {timeAgo(item.last_checked_at)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <span>{timeAgo(item.last_checked_at)}</span>
+          {!item.is_active && (
+            <span
+              style={{
+                fontSize: '0.65rem',
+                padding: '0.05rem 0.35rem',
+                borderRadius: 'var(--radius-xs)',
+                background: 'var(--status-warning-bg)',
+                color: 'var(--status-warning)',
+                border: '1px solid var(--status-warning-border)'
+              }}
+            >
+              Paused
+            </span>
+          )}
+        </div>
 
         <div className="card-actions">
           <button
@@ -135,7 +163,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
             onClick={handleToggleActive}
             title={item.is_active ? 'Pause Tracking' : 'Resume Tracking'}
           >
-            {item.is_active ? <Pause size={14} /> : <Play size={14} />}
+            {item.is_active ? <Pause size={13} /> : <Play size={13} />}
           </button>
 
           <button
@@ -144,7 +172,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
             disabled={checking}
             title="Check Now"
           >
-            <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={checking ? 'animate-spin' : ''} />
           </button>
 
           <button
@@ -152,9 +180,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onRefresh, showToast }
             onClick={handleDelete}
             disabled={deleting}
             title="Delete Item"
-            style={{ color: 'var(--danger-text)' }}
+            style={{ color: 'var(--status-out-stock)' }}
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
         </div>
       </div>

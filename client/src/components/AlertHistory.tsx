@@ -76,22 +76,22 @@ export const AlertHistory: React.FC<AlertHistoryProps> = ({
                     <div
                       className="alert-icon"
                       style={{
-                        background: isRestock ? 'var(--success-bg)' : 'var(--warning-bg)',
-                        color: isRestock ? 'var(--success-text)' : 'var(--warning-text)'
+                        background: isRestock ? 'var(--status-in-stock-bg)' : 'var(--status-warning-bg)',
+                        color: isRestock ? 'var(--status-in-stock)' : 'var(--status-warning)'
                       }}
                     >
-                      {isRestock ? <PackageCheck size={18} /> : <TrendingDown size={18} />}
+                      {isRestock ? <PackageCheck size={16} /> : <TrendingDown size={16} />}
                     </div>
 
                     <div className="alert-content">
                       <div className="alert-header">
                         <span
                           className="alert-type"
-                          style={{ color: isRestock ? 'var(--success-text)' : 'var(--warning-text)' }}
+                          style={{ color: isRestock ? 'var(--status-in-stock)' : 'var(--status-warning)' }}
                         >
-                          {isRestock ? 'Restocked' : 'Price Drop'}
+                          {isRestock ? 'Restocked' : 'Notification'}
                         </span>
-                        <span className="alert-time">{new Date(a.sent_at).toLocaleString()}</span>
+                        <span className="alert-time">{new Date(a.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
 
                       <div style={{ fontWeight: 600, fontSize: '0.875rem', marginTop: '0.2rem' }}>

@@ -142,10 +142,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
       }, 2000);
 
       setTimeout(() => {
-        if (linking) {
-          setLinking(false);
-          stopPolling();
-        }
+        setLinking((prev) => {
+          if (prev) {
+            stopPolling();
+            return false;
+          }
+          return prev;
+        });
       }, 120000);
     } catch (err: any) {
       setLinking(false);
@@ -263,15 +266,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0.85rem 1rem',
-                  background: 'rgba(34, 197, 94, 0.12)',
-                  border: '1px solid rgba(34, 197, 94, 0.3)',
-                  borderRadius: '8px'
+                  padding: '0.75rem 1rem',
+                  background: 'var(--status-in-stock-bg)',
+                  border: '1px solid var(--status-in-stock-border)',
+                  borderRadius: 'var(--radius-sm)'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <CheckCircle2 size={20} style={{ color: 'var(--success-text)', flexShrink: 0 }} />
+                    <CheckCircle2 size={18} style={{ color: 'var(--status-in-stock)', flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--success-text)' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--status-in-stock)' }}>
                         Telegram Connected
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -282,11 +285,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
                     onClick={handleDisconnectTelegram}
                     disabled={disconnecting}
                   >
-                    {disconnecting ? <Loader2 size={14} className="animate-spin" /> : 'Disconnect'}
+                    {disconnecting ? <Loader2 size={13} className="animate-spin" /> : 'Disconnect'}
                   </button>
                 </div>
               ) : (
@@ -295,13 +298,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   flexDirection: 'column',
                   gap: '0.75rem',
                   padding: '1rem',
-                  background: 'var(--bg-card)',
+                  background: 'var(--bg-surface-elevated)',
                   border: '1px solid var(--border-subtle)',
-                  borderRadius: '8px'
+                  borderRadius: 'var(--radius-sm)'
                 }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Telegram Connection</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>Telegram Connection</div>
+                    <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                       Get a 6-digit pairing code to link your Telegram account for instant restock alerts.
                     </div>
                   </div>
@@ -316,14 +319,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     >
                       {linking ? (
                         <>
-                          <Loader2 size={16} className="animate-spin" />
+                          <Loader2 size={15} className="animate-spin" />
                           Generating Pairing Code...
                         </>
                       ) : !botConfigured && !allowDevSettings ? (
                         'Bot Not Configured by Admin'
                       ) : (
                         <>
-                          <Send size={16} />
+                          <Send size={15} />
                           Get Telegram Pairing Code
                         </>
                       )}
@@ -335,10 +338,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      background: 'var(--bg-primary)',
+                      background: 'var(--bg-canvas)',
                       padding: '1rem',
-                      borderRadius: '8px',
-                      border: '1px dashed var(--border-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
                       gap: '0.65rem'
                     }}>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>

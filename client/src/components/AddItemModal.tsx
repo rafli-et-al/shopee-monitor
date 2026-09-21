@@ -213,9 +213,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                         <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{variant.name}</span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span className={`badge ${isOutOfStock ? 'badge-out-stock' : 'badge-in-stock'}`}>
-                          {isOutOfStock ? 'Out of Stock' : 'In Stock'}
+                      <div className="status-dot-indicator">
+                        <span className={`status-dot ${isOutOfStock ? 'status-dot-out-stock' : 'status-dot-in-stock'}`} />
+                        <span style={{ color: isOutOfStock ? 'var(--status-out-stock)' : 'var(--status-in-stock)', fontWeight: 500, fontSize: '0.75rem' }}>
+                          {isOutOfStock ? 'Out of stock' : variant.stock > 1 ? `In stock (${variant.stock})` : 'In stock'}
                         </span>
                       </div>
                     </div>
